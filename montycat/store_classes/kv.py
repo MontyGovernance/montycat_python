@@ -26,6 +26,10 @@ class generic_kv:
         """
         custom_key_converted = convert_custom_key(custom_key)
         cls.command = "insert_custom_key"
+
+        if not custom_key:
+            raise ValueError("No custom key provided for insertion.")
+
         query = convert_to_binary_query(cls, key=custom_key_converted, expire_sec=expire_sec)
         return cls._run_query(query)
     
@@ -48,6 +52,12 @@ class generic_kv:
         """
         custom_key_converted = convert_custom_key(custom_key)
         cls.command = "insert_custom_key_value"
+
+        if not value:
+            raise ValueError("No value provided for insertion.")
+        if not custom_key:
+            raise ValueError("No custom key provided for insertion.")
+
         query = convert_to_binary_query(cls, key=custom_key_converted, value=value, expire_sec=expire_sec)
         return cls._run_query(query)
     
@@ -61,6 +71,10 @@ class generic_kv:
             Key number if the insert operation was successful. Class 'str' if the insert operation failed.
         """
         cls.command = "insert_value"
+
+        if not value:
+            raise ValueError("No value provided for insertion.")
+
         query = convert_to_binary_query(cls, value=value, expire_sec=expire_sec)
         return cls._run_query(query)
     
@@ -78,6 +92,10 @@ class generic_kv:
         if len(custom_key) > 0:
             key = convert_custom_key(custom_key)
         cls.command = "get_value"
+
+        if not key:
+            raise ValueError("No key provided for retrieval.")
+
         query = convert_to_binary_query(cls, key=key, with_pointers=with_pointers)
         return cls._run_query(query)
         
@@ -98,28 +116,68 @@ class generic_kv:
     
     @classmethod
     def delete_key(cls, key: int | str = "", custom_key: str = ""):
+        """
+        Delete a key from the store. If a custom key is provided, it will be converted
+        to the appropriate format before deletion.
 
+        Args:
+            key (int | str, optional): The key to delete. This can either be an integer or a string.
+                                       Default is an empty string, which will be ignored if custom_key is provided.
+            custom_key (str, optional): The custom key to delete. This is used if the key provided is a custom key string.
+                                       Default is an empty string.
+
+        Returns:
+            bool | str: Returns a boolean indicating success (True) or failure (False),
+                        or a string message if the deletion was unsuccessful.
+        """
+        # If a custom key is provided, convert it to the appropriate format
         if len(custom_key) > 0:
             key = convert_custom_key(custom_key)
 
-        cls.command = "delete_key"
-        query = convert_to_binary_query(cls, key=key)
-        return cls._run_query(query)
+        cls.command = "delete_key"  # Set the command type for the query
+
+        if not key:  # Ensure a key is provided for the deletion operation
+            raise ValueError("No key provided for deletion.")
+
+        query = convert_to_binary_query(cls, key=key)  # Convert the key into a binary query format
+        return cls._run_query(query)  # Run the query and return the result
 
     @classmethod
     def update_value(cls, key: int | str = "", custom_key: str = "", **filters):
+        """
+        Update the value associated with a given key in the store. If a custom key is provided,
+        it will be converted to the appropriate format before updating.
 
+        Args:
+            key (int | str, optional): The key whose associated value needs to be updated. 
+                                       This can either be an integer or a string. Default is an empty string,
+                                       which will be ignored if custom_key is provided.
+            custom_key (str, optional): The custom key whose associated value needs to be updated. 
+                                        Default is an empty string.
+            filters (dict): A dictionary of field-value pairs that need to be updated in the store.
+
+        Returns:
+            bool | str: Returns a boolean indicating success (True) or failure (False),
+                        or a string message if the update was unsuccessful.
+        """
+        # If a custom key is provided, convert it to the appropriate format
         if len(custom_key) > 0:
             key = convert_custom_key(custom_key)
 
-        cls.command = "update_value"
-        query = convert_to_binary_query(cls, key=key, value=filters)
-        print(query)
-        return cls._run_query(query)
+        cls.command = "update_value"  # Set the command type for the query
+
+        if not filters:  # Ensure at least one filter is provided for the update operation
+            raise ValueError("No filters provided for update.")
+        if not key:  # Ensure a key is provided for the update operation
+            raise ValueError("No key provided for update.")
+
+        query = convert_to_binary_query(cls, key=key, value=filters)  # Convert the key and filters into a binary query format
+        print(query)  # Print the query for debugging or logging purposes
+        return cls._run_query(query)  # Run the query and return the result
+
     
     @classmethod
     def insert_bulk(cls, bulk_values: list, expire_sec: int = 0):
-        # bulk_values = [str(item) for item in bulk if len(bulk) > 0]
         """       
         Args:
             bulk_values: A list of Python objects to insert into the store.
@@ -130,66 +188,165 @@ class generic_kv:
             List of values that were not inserted.
         """
         cls.command = "insert_bulk"
+
+        if not bulk_values:
+            raise ValueError("No values provided for bulk insertion.")
+
         query = convert_to_binary_query(cls, bulk_values=bulk_values, expire_sec=expire_sec)
         return cls._run_query(query)
     
     @classmethod
     def delete_bulk(cls, bulk_keys: list = [], bulk_custom_keys: list = []):
+        """
+        Delete multiple keys in bulk. If custom keys are provided, they are first converted
+        to the appropriate format and then appended to the list of keys to be deleted.
 
+        Args:
+            bulk_keys (list, optional): A list of keys to delete. Each key can be either an integer or a string. 
+                                        Default is an empty list.
+            bulk_custom_keys (list, optional): A list of custom keys to delete. These keys will be converted to 
+                                                the appropriate format before being included in the deletion query. 
+                                                Default is an empty list.
+
+        Returns:
+            bool | str: Returns a boolean indicating whether the bulk deletion was successful (True) or not (False).
+                        It may also return a string message in case of an error or failure.
+        
+        Raises:
+            ValueError: If both `bulk_keys` and `bulk_custom_keys` are empty.
+        """
+        # Convert custom keys if provided, and append them to the list of bulk_keys
         if len(bulk_custom_keys) > 0:
             bulk_custom_keys = convert_custom_keys(bulk_custom_keys)
             bulk_keys += bulk_custom_keys
 
-        cls.command = "delete_bulk"
-        query = convert_to_binary_query(cls, bulk_keys=bulk_keys)
-        return cls._run_query(query)
+        if not bulk_keys:  # Ensure at least one key exists for the operation
+            raise ValueError("No keys provided for deletion.")
+        
+        cls.command = "delete_bulk"  # Set the command for bulk deletion
+        query = convert_to_binary_query(cls, bulk_keys=bulk_keys)  # Construct the query in binary format
+        return cls._run_query(query)  # Execute the query and return the result
     
     @classmethod
     def get_bulk(cls, bulk_keys: list = [], bulk_custom_keys: list = [], limit: list = [], with_pointers: bool = False):
+        """
+        Retrieve multiple keys in bulk. Custom keys can be converted and added to the bulk retrieval list.
+        Additionally, a limit on the number of records to retrieve can be applied, and whether to include pointers 
+        in the results can be specified.
 
-        lim = handle_limit(limit)
+        Args:
+            bulk_keys (list, optional): A list of keys to retrieve. Each key can be either an integer or a string.
+                                        Default is an empty list.
+            bulk_custom_keys (list, optional): A list of custom keys to retrieve. These keys will be converted 
+                                                before being included in the bulk retrieval. Default is an empty list.
+            limit (list, optional): A list defining the limit on the number of records to return. If empty, 
+                                     no limit is applied.
+            with_pointers (bool, optional): If True, the query will include pointer information with the results.
+                                            Default is False.
+
+        Returns:
+            dict | str: Returns a dictionary of keys and their associated values if successful, or a string 
+                        message if the retrieval fails or there is an error.
+        
+        Raises:
+            ValueError: If both `bulk_keys` and `bulk_custom_keys` are empty.
+        """
+        lim = handle_limit(limit)  # Handle and normalize the limit argument
 
         if len(bulk_custom_keys) > 0:
-            bulk_custom_keys = convert_custom_keys(bulk_custom_keys)
-            bulk_keys += bulk_custom_keys
+            bulk_custom_keys = convert_custom_keys(bulk_custom_keys)  # Convert custom keys if provided
+            bulk_keys += bulk_custom_keys  # Append the custom keys to the bulk_keys list
         
-        cls.command = "get_bulk"
-        cls.limit_output = lim
-        query = convert_to_binary_query(cls, bulk_keys=bulk_keys, with_pointers=with_pointers)
-        return cls._run_query(query)
+        if not bulk_keys:  # Ensure at least one key exists for the operation
+            raise ValueError("No keys provided for retrieval.")
+        
+        cls.command = "get_bulk"  # Set the command for bulk retrieval
+        cls.limit_output = lim  # Set the limit for the query
+        query = convert_to_binary_query(cls, bulk_keys=bulk_keys, with_pointers=with_pointers)  # Create the query
+        return cls._run_query(query)  # Execute and return the result
     
     @classmethod
     def update_bulk(cls, bulk_keys_values: dict = {}, bulk_custom_keys_values: dict = {}):
+        """
+        Update multiple keys in bulk with the provided new values. If custom keys are provided, 
+        they will be converted before being applied to the bulk update.
 
+        Args:
+            bulk_keys_values (dict, optional): A dictionary where the keys are the keys to be updated, 
+                                                and the values are the new values to assign. Default is an empty dictionary.
+            bulk_custom_keys_values (dict, optional): A dictionary of custom keys and their new values to be updated. 
+                                                      These custom keys will be converted before being included in the update. 
+                                                      Default is an empty dictionary.
+
+        Returns:
+            bool | str: Returns a boolean indicating success (True) or failure (False), or a string error message 
+                        if the update operation fails.
+        
+        Raises:
+            ValueError: If neither `bulk_keys_values` nor `bulk_custom_keys_values` is provided.
+        """
         if len(bulk_custom_keys_values) > 0:
-            bulk_custom_keys_values = convert_custom_keys_values(bulk_custom_keys_values)
-            bulk_keys_values = bulk_keys_values | bulk_custom_keys_values
-
-            # print(bulk_keys_values)
-
-        cls.command = "update_bulk"
-        query = convert_to_binary_query(cls, bulk_keys_values=bulk_keys_values)
-        return cls._run_query(query)
+            bulk_custom_keys_values = convert_custom_keys_values(bulk_custom_keys_values)  # Convert custom keys and values
+            bulk_keys_values = bulk_keys_values | bulk_custom_keys_values  # Merge the custom keys values with the bulk keys values
+        
+        if not bulk_keys_values:  # Ensure at least one key-value pair exists for the operation
+            raise ValueError("No key-value pairs provided for update.")
+        
+        cls.command = "update_bulk"  # Set the command for bulk update
+        query = convert_to_binary_query(cls, bulk_keys_values=bulk_keys_values)  # Build the query in binary format
+        return cls._run_query(query)  # Execute the query and return the result
     
     @classmethod
     def lookup_keys_where(cls, limit: int = 0, **filters):
+        """
+        Perform a lookup for keys matching the given filters with an optional limit on the number of records returned.
 
-        lim = handle_limit(limit)
+        Args:
+            limit (int, optional): The maximum number of results to return. If 0, no limit is applied. Default is 0.
+            filters (dict): The filtering criteria for the lookup. These are field-value pairs that the keys should match.
 
-        cls.command = "lookup_keys"
-        cls.limit_output = lim
-        query = convert_to_binary_query(cls, search_criteria=filters)
-        return cls._run_query(query)
+        Returns:
+            dict | str: A dictionary of matching keys and their associated values, or a string error message if the query fails.
+        
+        Raises:
+            ValueError: If no filters are provided.
+        """
+        lim = handle_limit(limit)  # Normalize the limit argument
+
+        if not filters:  # Ensure filters are provided for the lookup
+            raise ValueError("No filters provided for the lookup.")
+        
+        cls.command = "lookup_keys"  # Set the command for key lookup
+        cls.limit_output = lim  # Set the limit for the query
+        query = convert_to_binary_query(cls, search_criteria=filters)  # Build the query with the filters
+        return cls._run_query(query)  # Execute the query and return the result
     
     @classmethod
-    def lookup_values_where(cls, limit = 0, with_pointers: bool = False, **filters):
+    def lookup_values_where(cls, limit=0, with_pointers: bool = False, **filters):
+        """
+        Perform a lookup for values matching the given filters, with options to apply a limit and include pointer information.
 
-        lim = handle_limit(limit)
+        Args:
+            limit (int, optional): The maximum number of results to return. If 0, no limit is applied. Default is 0.
+            with_pointers (bool, optional): If True, the query will include pointers in the result. Default is False.
+            filters (dict): The filtering criteria for the lookup. These are field-value pairs that the values should match.
 
-        cls.command = "lookup_values"
-        cls.limit_output = lim
-        query = convert_to_binary_query(cls, search_criteria=filters, with_pointers=with_pointers)
-        return cls._run_query(query)
+        Returns:
+            dict | str: A dictionary of matching values and their associated keys, or a string error message if the query fails.
+        
+        Raises:
+            ValueError: If no filters are provided.
+        """
+        lim = handle_limit(limit)  # Normalize the limit argument
+
+        if not filters:  # Ensure filters are provided for the lookup
+            raise ValueError("No filters provided for the lookup.")
+        
+        cls.command = "lookup_values"  # Set the command for value lookup
+        cls.limit_output = lim  # Set the limit for the query
+        query = convert_to_binary_query(cls, search_criteria=filters, with_pointers=with_pointers)  # Build the query
+        return cls._run_query(query)  # Execute the query and return the result
+
     
     @classmethod
     def to_blockchain(cls, key: int):
