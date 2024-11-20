@@ -347,6 +347,39 @@ class generic_kv:
         query = convert_to_binary_query(cls, search_criteria=filters, with_pointers=with_pointers)  # Build the query
         return cls._run_query(query)  # Execute the query and return the result
 
+    @classmethod
+    def list_all_depending_keys(cls, key: str | int = "", custom_key: str = ""):
+        """
+        List all keys that depend on a specified key or custom key.
+
+        This class method generates a query to retrieve all keys that are dependent
+        on a given `key` or a `custom_key` if provided. It converts the key into 
+        the appropriate format and executes the query.
+
+        Parameters:
+            key (str | int, optional): The primary key whose dependencies are to be listed. 
+                Defaults to an empty string.
+            custom_key (str, optional): A custom key that can be converted into the 
+                appropriate format. If provided, it overrides the `key` parameter.
+
+        Returns:
+            Any: The result of executing the query, typically representing the 
+                dependent keys.
+
+        Raises:
+            ValueError: If both `key` and `custom_key` are empty, as one of them 
+                is required to form a valid query.
+        """
+        if len(custom_key) > 0:
+            key = convert_custom_key(custom_key)
+
+        if not key:
+            raise ValueError("No key provided for retrieval.")
+
+        cls.command = "list_all_depending_keys"
+
+        query = convert_to_binary_query(cls, key=key)
+        return cls._run_query(query)
     
     @classmethod
     def to_blockchain(cls, key: int):
