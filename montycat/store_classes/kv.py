@@ -314,7 +314,7 @@ class generic_kv:
         lim = handle_limit(limit)  # Normalize the limit argument
 
         if not filters:  # Ensure filters are provided for the lookup
-            raise ValueError("No filters provided for the lookup.")
+            raise ValueError("No criteria provided for the lookup.")
         
         cls.command = "lookup_keys"  # Set the command for key lookup
         cls.limit_output = lim  # Set the limit for the query
@@ -340,7 +340,7 @@ class generic_kv:
         lim = handle_limit(limit)  # Normalize the limit argument
 
         if not filters:  # Ensure filters are provided for the lookup
-            raise ValueError("No filters provided for the lookup.")
+            raise ValueError("No criteria provided for the lookup.")
         
         cls.command = "lookup_values"  # Set the command for value lookup
         cls.limit_output = lim  # Set the limit for the query

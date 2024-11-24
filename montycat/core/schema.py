@@ -1,4 +1,5 @@
 from typing import get_origin, get_args, get_type_hints, Union
+from timestamp import Timestamp
 
 class Pointer:
     """
@@ -28,8 +29,9 @@ class Pointer:
                            and a value.
 
         Example:
-            pointer = Pointer(field1=("namespace1", "value1"), field2=("namespace2", "value2"))
+            pointers = Pointer(field1=("namespace1", "value1"), field2=("namespace2", "value2"))
         """
+        # Should enforce word pointers
         for key, value in kwargs.items():
             # Each pointer is initialized with a store namespace and a value
             setattr(self, key, [value[0].store_namespace, value[1]])
@@ -53,8 +55,6 @@ class Pointer:
             dict: A dictionary representation of the `Pointer` object.
         """
         return self.__dict__
-
-
 class Schema:
     """
     A base class for defining data schemas, where the schema class will 
@@ -143,8 +143,14 @@ class Schema:
                 if v[1].isdigit():
                     self.pointers[k] = [v[0].store_namespace, str(v[1])]
 
-        return self.__dict__
+        # if hasattr(self, "timestamps"):
+        #     self.timestamps = self.timestamps.serialize()
+        #     for k, v in self.timestamps.items():
+        #         if type(v) != str:
+        #             raise ValueError("Timestamp must be str")
 
+        return self.__dict__
+    
     def validate_types(self):
         """
         Validates the types of the attributes of the schema, ensuring that 
@@ -162,6 +168,18 @@ class Schema:
 
         for attribute, expected_type in hints.items():
             actual_value = getattr(self, attribute)
+
+            print(actual_value, expected_type, attribute)
+
+            if expected_type is Pointer and attribute != "pointers":
+                raise SyntaxError(
+                    f'Type Pointer has to relate to "pointers", but got "{attribute}"'
+                )
+            
+            if expected_type is Timestamp and not "timestamp" in attribute:
+                raise SyntaxError(
+                    f'Type Timestamp has keyword "timestamps" within its name, but got "{attribute}"'
+                )
             
             # Get the origin of the expected type (i.e., the base class for unions)
             origin = get_origin(expected_type)
@@ -177,10 +195,19 @@ class Schema:
 
             elif origin is Pointer:
                 # Handle Pointer types
+
                 if not isinstance(actual_value, Pointer) and actual_value is not None:
                     raise TypeError(
                         f"Attribute '{attribute}' should be of type '{expected_type.__name__}', "
                         f"but got '{type(actual_value).__name__}'"
+                    )
+                
+            elif origin is Timestamp:
+                # Handle Timestamp
+                if not isinstance(actual_value, Timestamp) and actual_value is not None:
+                    raise TypeError(
+                        f"Attribute '{attribute}' should be of type '{expected_type.__name__}', "
+                        f"but got '{type(actual_value).__name__}'"                        
                     )
 
             elif origin is None:

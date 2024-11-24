@@ -4,4 +4,5 @@ __pycache__**
 dist
 montycat.egg-info
 build
+test.py
 README.md
