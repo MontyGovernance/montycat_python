@@ -4,7 +4,7 @@ from ..store_functions.store_generic_functions import handle_limit, connect_engi
 import asyncio
 
 class generic_kv:
-    store_name: str = ""
+    store: str = ""
     command: str = ""
     persistent: bool = False
     request: str = "store"

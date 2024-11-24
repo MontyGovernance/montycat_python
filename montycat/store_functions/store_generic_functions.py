@@ -20,7 +20,7 @@ def connect_engine_(cls: type, engine: Engine) -> None:
     cls.password = engine.password
     cls.host = engine.host
     cls.port = engine.port
-    cls.store_name = engine.store_name
+    cls.store = engine.store
 
 def convert_custom_key(key: int | str) -> int:
     """
@@ -147,8 +147,8 @@ def convert_to_binary_query(
         "request": cls.request,
         "username": cls.username,
         "password": cls.password,
-        "store_namespace": cls.store_namespace,
-        "store_name": cls.store_name,
+        "storespace": cls.storespace,
+        "store": cls.store,
         "persistent": cls.persistent,
         "distributed": cls.distributed,
         "limit_output": cls.limit_output,
@@ -241,7 +241,7 @@ def drop_store_(cls: type) -> None:
     """
     cls.command = "drop_store"
     cls.request = "utils"
-    return print('DROP', cls.store_name)
+    return print('DROP', cls.store)
 
 def show_store_properties_(cls: type) -> None:
     """
@@ -254,8 +254,8 @@ def show_store_properties_(cls: type) -> None:
     a query to retrieve the store's properties.
     """
     return print(
-        f"Store Name: {cls.store_name}\n"
-        f"Store Namespace: {cls.store_namespace}\n"
+        f"Store Name: {cls.store}\n"
+        f"Store Namespace: {cls.storespace}\n"
         f"Persistent: {cls.persistent}\n"
         f"Distributed: {cls.distributed}\n"
         f"Host: {cls.host}\n"

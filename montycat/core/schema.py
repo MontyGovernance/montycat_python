@@ -10,7 +10,7 @@ class Pointer:
     or collections.
 
     Attributes:
-        store_namespace (str): The namespace for the store this pointer refers to.
+        namespace (str): The namespace for the store this pointer refers to.
         value (str): The value associated with this pointer.
 
     Methods:
@@ -34,7 +34,7 @@ class Pointer:
         # Should enforce word pointers
         for key, value in kwargs.items():
             # Each pointer is initialized with a store namespace and a value
-            setattr(self, key, [value[0].store_namespace, value[1]])
+            setattr(self, key, [value[0].namespace, value[1]])
 
     def __str__(self):
         """
@@ -141,7 +141,7 @@ class Schema:
             self.pointers = self.pointers.serialize()
             for k, v in self.pointers.items():
                 if v[1].isdigit():
-                    self.pointers[k] = [v[0].store_namespace, str(v[1])]
+                    self.pointers[k] = [v[0].namespace, str(v[1])]
 
         # if hasattr(self, "timestamps"):
         #     self.timestamps = self.timestamps.serialize()

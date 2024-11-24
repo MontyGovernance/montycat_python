@@ -13,9 +13,9 @@ class Engine:
         port (int): The port number on the server to use for the connection.
         username (str): The username for authentication with the server.
         password (str): The password for authentication with the server.
-        store_name (str): The name of the data store on the server.
+        store (str): The name of the data store on the server.
     """
-    def __init__(self, host: str, port: int, username: str, password: str, store_name: str):
+    def __init__(self, host: str, port: int, username: str, password: str, store: str):
         """
         Initializes the Engine with the necessary connection parameters.
 
@@ -24,13 +24,13 @@ class Engine:
             port (int): The port number on the server to connect to.
             username (str): The username for authentication.
             password (str): The password for authentication.
-            store_name (str): The name of the data store to interact with.
+            store (str): The name of the data store to interact with.
         """
         self.host = host
         self.port = port
         self.username = username
         self.password = password
-        self.store_name = store_name
+        self.store = store
 
 
 async def send_data(host: str, port: int, string: str):
