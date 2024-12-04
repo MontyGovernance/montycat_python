@@ -1,6 +1,6 @@
 from ..core.engine import Engine, send_data
 from ..core.limit import Limit
-from ..core.schema import Pointer
+# from ..core.schema import Pointer
 import asyncio
 import orjson
 import xxhash
@@ -147,7 +147,7 @@ def convert_to_binary_query(
         "request": cls.request,
         "username": cls.username,
         "password": cls.password,
-        "storespace": cls.storespace,
+        "namespace": cls.namespace,
         "store": cls.store,
         "persistent": cls.persistent,
         "distributed": cls.distributed,
