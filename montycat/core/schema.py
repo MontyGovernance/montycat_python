@@ -1,5 +1,12 @@
 from typing import get_origin, get_args, get_type_hints, Union
-from .timestamp import Timestamp
+
+class Timestamp:
+    def __init__(self, timestamp):
+        self.timestamp = timestamp
+
+    def serialize(self):
+        return self.timestamp
+
 
 class Pointer:
     def __init__(self, namespace, key):
@@ -48,7 +55,6 @@ class Pointer:
         Returns:
             str: String representation of the `Pointer` object.
         """
-        # print("DICT", self.__dict__)
         return str(self.__dict__)
     
     def serialize(self):
@@ -86,6 +92,11 @@ class Schema:
                 attr_value = getattr(self, attr_name)
                 if hasattr(attr_value, "serialize"):
                     setattr(self, attr_name, [attr_value.namespace, str(attr_value.key)])
+            if "_timestamp" in attr_name:
+                attr_value = getattr(self, attr_name)
+                if hasattr(attr_value, "serialize"):
+                    setattr(self, attr_name, attr_value.serialize())
+                    
         return self.__dict__
 
     def check_missing_fields(self, hints):
