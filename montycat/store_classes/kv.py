@@ -2,6 +2,7 @@ from ..core.engine import Engine, send_data
 # from ..core.schema import Pointer
 from ..store_functions.store_generic_functions import handle_limit, connect_engine_, create_namespace_, drop_namespace_, drop_store_, show_store_properties_, convert_to_binary_query, convert_custom_key, convert_custom_keys, convert_custom_keys_values
 import asyncio
+from typing import Union
 
 class generic_kv:
     store: str = ""
@@ -80,7 +81,7 @@ class generic_kv:
         return cls._run_query(query)
     
     @classmethod
-    def get_value(cls, key: int | str = "", custom_key: str = "", with_pointers: bool = False):
+    def get_value(cls, key: Union[int, str] = "", custom_key: str = "", with_pointers: bool = False):
 
         """
         Args:
@@ -116,7 +117,7 @@ class generic_kv:
         return cls._run_query(query)
     
     @classmethod
-    def delete_key(cls, key: int | str = "", custom_key: str = ""):
+    def delete_key(cls, key: Union[int, str] = "", custom_key: str = ""):
         """
         Delete a key from the store. If a custom key is provided, it will be converted
         to the appropriate format before deletion.
@@ -144,7 +145,7 @@ class generic_kv:
         return cls._run_query(query)  # Run the query and return the result
 
     @classmethod
-    def update_value(cls, key: int | str = "", custom_key: str = "", **filters):
+    def update_value(cls, key: Union[int, str] = "", custom_key: str = "", **filters):
         """
         Update the value associated with a given key in the store. If a custom key is provided,
         it will be converted to the appropriate format before updating.
@@ -288,7 +289,7 @@ class generic_kv:
         """
         if len(bulk_custom_keys_values) > 0:
             bulk_custom_keys_values = convert_custom_keys_values(bulk_custom_keys_values)  # Convert custom keys and values
-            bulk_keys_values = bulk_keys_values | bulk_custom_keys_values  # Merge the custom keys values with the bulk keys values
+            bulk_keys_values = {**bulk_keys_values, **bulk_custom_keys_values}  # Merge the dictionaries
         
         if not bulk_keys_values:  # Ensure at least one key-value pair exists for the operation
             raise ValueError("No key-value pairs provided for update.")
@@ -349,7 +350,7 @@ class generic_kv:
         return cls._run_query(query)  # Execute the query and return the result
 
     @classmethod
-    def list_all_depending_keys(cls, key: str | int = "", custom_key: str = ""):
+    def list_all_depending_keys(cls, key: Union[str, int] = "", custom_key: str = ""):
         """
         List all keys that depend on a specified key or custom key.
 

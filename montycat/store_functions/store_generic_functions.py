@@ -4,6 +4,7 @@ from ..core.limit import Limit
 import asyncio
 import orjson
 import xxhash
+from typing import Union
 
 def connect_engine_(cls: type, engine: Engine) -> None:
     """
@@ -22,7 +23,7 @@ def connect_engine_(cls: type, engine: Engine) -> None:
     cls.port = engine.port
     cls.store = engine.store
 
-def convert_custom_key(key: int | str) -> int:
+def convert_custom_key(key: Union[int, str]) -> int:
     """
     Converts a custom key (either an integer or string) into a hash value using xxHash.
     
@@ -69,36 +70,71 @@ def convert_custom_keys_values(keys_values: dict) -> dict:
     """
     return {convert_custom_key(key): value for key, value in keys_values.items()}
 
-def modify_pointers(value: dict):
+def modify_pointers_timestamps(value: dict):
     """
-    Modifies any pointer values within the given dictionary to ensure they are valid 
-    and consistent.
+    Processes and modifies the dictionary by converting all '_pointer' entries into 
+    a consolidated 'pointers' dictionary and all '_timestamp' entries into a 
+    'timestamps' dictionary. The function validates that each pointer is in the 
+    correct format, and ensures that timestamps are valid strings.
     
     Args:
-        value (dict): The dictionary containing pointer information.
+        value (dict): The dictionary that may contain multiple fields, some of 
+                      which are expected to end in '_pointer' or '_timestamp'.
     
     Returns:
-        dict: The modified dictionary with valid pointers.
+        dict: The modified dictionary containing two additional fields:
+            - 'pointers': A dictionary of all the '_pointer' fields converted to a structured format.
+            - 'timestamps': A dictionary of all the '_timestamp' fields stored as strings.
     
     Raises:
-        ValueError: If a pointer cannot be properly converted to a valid hash or custom key.
+        ValueError: If a '_pointer' entry is not a list of two elements (namespace, key), 
+                    or if a '_timestamp' value is not a string.
     
-    This function checks if the input dictionary contains a `pointers` field and 
-    attempts to modify each pointer value to ensure it is valid. If the value is a 
-    digit, it is converted to a string, otherwise, the custom key conversion function 
-    is applied.
+    This function ensures that all pointer values are correctly processed and stored in the 
+    'pointers' field, and all timestamp values are correctly stored in the 'timestamps' field.
     """
-    if "pointers" in value:
-        try:
-            for k, v in value['pointers'].items():
-                if v[1].isdigit():
-                    value['pointers'][k] = [v[0], str(v[1])]
+    
+    # Initialize the pointers and timestamps dictionaries if they don't exist
+    if "pointers" not in value:
+        value["pointers"] = {}
+    if "timestamps" not in value:
+        value["timestamps"] = {}
+
+    try:
+        # Iterate through the dictionary keys and process those ending with '_pointer' or '_timestamp'
+        for key in list(value.keys()):
+            
+            # Process '_pointer' fields
+            if "_pointer" in key:
+                pointer_value = value.pop(key)  # Remove the key-value pair
+                if isinstance(pointer_value, list) and len(pointer_value) == 2:
+                    namespace, raw_key = pointer_value
+                    
+                    # Ensure the raw_key is properly converted to a valid format (either a string or custom key)
+                    if isinstance(raw_key, str) and raw_key.isdigit():
+                        processed_key = str(raw_key)
+                    else:
+                        processed_key = convert_custom_key(raw_key)
+                    
+                    # Add the processed pointer to the 'pointers' dictionary
+                    value["pointers"][key] = [namespace, processed_key]
                 else:
-                    value['pointers'][k] = [v[0], convert_custom_key(v[1])]
-            return value
-        except:
-            raise ValueError("Pointer should be a valid hash key or custom key")
+                    raise ValueError(f"Pointer '{key}' must be a list of [namespace, key].")
+            
+            # Process '_timestamp' fields
+            if "_timestamp" in key:
+                timestamp_value = value.pop(key)  # Remove the key-value pair
+                if isinstance(timestamp_value, str):
+                    value["timestamps"][key] = timestamp_value  # Add valid timestamp to 'timestamps' dictionary
+                else:
+                    raise ValueError(f"Timestamp '{key}' must be a string.")
+
+    except Exception as e:
+        raise ValueError(f"Error processing pointers: {e}")
+
     return value
+
+
     
 def convert_to_binary_query(
         cls: type, 
@@ -135,13 +171,13 @@ def convert_to_binary_query(
     """
     
     if len(value) > 0:
-        value = modify_pointers(value)
+        value = modify_pointers_timestamps(value)
 
     if len(bulk_values) > 0:
-        bulk_values = [str(modify_pointers(value)) for value in bulk_values]
+        bulk_values = [str(modify_pointers_timestamps(value)) for value in bulk_values]
 
     if len(bulk_keys_values) > 0:
-        bulk_keys_values = {key: str(modify_pointers(value)) for key, value in bulk_keys_values.items()}
+        bulk_keys_values = {key: str(modify_pointers_timestamps(value)) for key, value in bulk_keys_values.items()}
             
     return orjson.dumps({
         "request": cls.request,
@@ -177,29 +213,51 @@ def run_query(cls: type) -> None:
     query = convert_to_binary_query(cls)
     return asyncio.run(send_data(cls.host, cls.port, query))
 
-def handle_limit(limit: list) -> dict:
+def handle_limit(limit: Union[list, int]) -> dict:
     """
-    Handles the pagination limits for queries based on provided input.
+    Processes and returns pagination limits for queries based on the provided input.
     
     Args:
-        limit (list): A list containing the start and stop limits for pagination.
+        limit (list | int): The pagination limit, either a list with two values (start, stop) 
+                             or an integer representing the stop limit.
     
     Returns:
         dict: A dictionary containing the pagination limits (`start` and `stop`).
     
-    This function processes the provided limit to ensure it is in the correct 
-    format and returns a structured object representing the pagination bounds.
+    Raises:
+        ValueError: If the provided limit is neither a valid list nor a valid integer.
+    
+    This function ensures the pagination limits are properly structured and returns
+    them in a dictionary format suitable for query processing.
     """
-    limit_class = Limit()
+    # Initialize the Limit object with default values
+    limit_instance = Limit()
 
-    if type(limit) == list:
-        if len(limit) > 1:
-            limit_class.start = limit[0]
-            limit_class.stop = limit[1]
-        elif len(limit) == 1:
-            limit_class.stop = limit[0]
+    if isinstance(limit, list):
+        if len(limit) == 2:
+            # Set both start and stop from the list
+            limit_instance.start, limit_instance.stop = limit
+        elif len(limit) == 0:
+            # No limits provided, set both to 0
+            limit_instance.start, limit_instance.stop = 0, 0
+        else:
+            # Invalid list length
+            raise ValueError("Limit should be a list with exactly two values (start, stop).")
+    
+    elif isinstance(limit, int):
+        if limit >= 0:
+            # If the limit is a positive integer, set it as the stop value
+            limit_instance.start, limit_instance.stop = 0, limit
+        else:
+            # Invalid integer value
+            raise ValueError("Limit should be an integer greater than 0.")
+    
+    else:
+        # Invalid type
+        raise ValueError("Limit should be either a list (with two values) or a positive integer.")
 
-    return limit_class.return_limit()
+    # Return the pagination limit as a dictionary
+    return limit_instance.return_limit()
 
 def create_namespace_(cls: type) -> None:
     """

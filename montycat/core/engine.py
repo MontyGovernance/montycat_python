@@ -64,7 +64,7 @@ async def send_data(host: str, port: int, string: str):
         reader, writer = await asyncio.open_connection(host, port)
         
         # Write the data string to the server
-        writer.write(string.encode() + b"\n")
+        writer.write(string + b"\n") #.encode()
         await writer.drain()
 
         try:
@@ -93,7 +93,6 @@ async def send_data(host: str, port: int, string: str):
 
     return resp
 
-
 def recursive_parse_orjson(data):
     """
     Recursively parses nested JSON strings in the provided data using orjson for faster parsing.
@@ -105,23 +104,51 @@ def recursive_parse_orjson(data):
         A fully parsed Python object with all nested JSON strings converted.
     """
     if isinstance(data, dict):
-        return {
-            key: recursive_parse_orjson(value)
-            for key, value in data.items()
-        }
+        return {key: recursive_parse_orjson(value) for key, value in data.items()}
     elif isinstance(data, tuple):
-        return tuple(recursive_parse_orjson(element) if not element.isdigit() else element for element in data)
+        return tuple(recursive_parse_orjson(element) for element in data)
     elif isinstance(data, list):
-        return [recursive_parse_orjson(element) if not element.isdigit() else element for element in data]
+        return [recursive_parse_orjson(element) for element in data]
     elif isinstance(data, str):
         try:
             parsed_data = orjson.loads(data)
             return recursive_parse_orjson(parsed_data)
         except orjson.JSONDecodeError:
             return data
-    
     elif isinstance(data, (int, float)):
         return data
-    
     else:
         return data
+
+
+# def recursive_parse_orjson(data):
+#     """
+#     Recursively parses nested JSON strings in the provided data using orjson for faster parsing.
+    
+#     Args:
+#         data: A Python object that may contain JSON strings, including nested structures.
+        
+#     Returns:
+#         A fully parsed Python object with all nested JSON strings converted.
+#     """
+#     if isinstance(data, dict):
+#         return {
+#             key: recursive_parse_orjson(value)
+#             for key, value in data.items()
+#         }
+#     elif isinstance(data, tuple):
+#         return tuple(recursive_parse_orjson(element) if not element.isdigit() else element for element in data)
+#     elif isinstance(data, list):
+#         return [recursive_parse_orjson(element) if not element.isdigit() else element for element in data]
+#     elif isinstance(data, str):
+#         try:
+#             parsed_data = orjson.loads(data)
+#             return recursive_parse_orjson(parsed_data)
+#         except orjson.JSONDecodeError:
+#             return data
+    
+#     elif isinstance(data, (int, float)):
+#         return data
+    
+#     else:
+#         return data

@@ -116,7 +116,7 @@ class Schema:
                 raise SyntaxError(
                     f"Type Pointer must have keyword '_pointer' within its name, but got '{attribute}'"
                 )
-            if expected_type is Timestamp and "timestamp" not in attribute:
+            if expected_type is Timestamp and "_timestamp" not in attribute:
                 raise SyntaxError(
                     f'Type Timestamp must have keyword "timestamp" within its name, but got "{attribute}"'
                 )
