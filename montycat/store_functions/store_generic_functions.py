@@ -95,39 +95,58 @@ def modify_pointers_timestamps(value: dict):
     """
     
     # Initialize the pointers and timestamps dictionaries if they don't exist
-    if "pointers" not in value:
-        value["pointers"] = {}
-    if "timestamps" not in value:
-        value["timestamps"] = {}
+    # if "pointers" not in value:
+    #     value["pointers"] = {}
+    # if "timestamps" not in value:
+    #     value["timestamps"] = {}
 
     try:
-        # Iterate through the dictionary keys and process those ending with '_pointer' or '_timestamp'
+        # # Iterate through the dictionary keys and process those ending with '_pointer' or '_timestamp'
         for key in list(value.keys()):
-            
-            # Process '_pointer' fields
-            if "_pointer" in key:
-                pointer_value = value.pop(key)  # Remove the key-value pair
-                if isinstance(pointer_value, list) and len(pointer_value) == 2:
-                    namespace, raw_key = pointer_value
-                    
+            if key == "pointers":
+                
+                for k, v in value[key].items():
+                    namespace, raw_key = v
+
                     # Ensure the raw_key is properly converted to a valid format (either a string or custom key)
+
                     if isinstance(raw_key, str) and raw_key.isdigit():
                         processed_key = str(raw_key)
                     else:
                         processed_key = convert_custom_key(raw_key)
-                    
+
+                        value[key][k] = [namespace, processed_key]
+
                     # Add the processed pointer to the 'pointers' dictionary
-                    value["pointers"][key] = [namespace, processed_key]
-                else:
-                    raise ValueError(f"Pointer '{key}' must be a list of [namespace, key].")
+                    # value[key] = [namespace, processed_key]
+
+                # Add the processed pointer to the 'pointers' dictionary
+                # value[key] = processed_key
+
+        #     # Process '_pointer' fields
+        #     if "_pointer" in key:
+        #         pointer_value = value.pop(key)  # Remove the key-value pair
+        #         if isinstance(pointer_value, list) and len(pointer_value) == 2:
+        #             namespace, raw_key = pointer_value
+                    
+        #             # Ensure the raw_key is properly converted to a valid format (either a string or custom key)
+        #             if isinstance(raw_key, str) and raw_key.isdigit():
+        #                 processed_key = str(raw_key)
+        #             else:
+        #                 processed_key = convert_custom_key(raw_key)
+                    
+        #             # Add the processed pointer to the 'pointers' dictionary
+        #             value["pointers"][key] = [namespace, processed_key]
+        #         else:
+        #             raise ValueError(f"Pointer '{key}' must be a list of [namespace, key].")
             
             # Process '_timestamp' fields
-            if "_timestamp" in key:
-                timestamp_value = value.pop(key)  # Remove the key-value pair
-                if isinstance(timestamp_value, str):
-                    value["timestamps"][key] = timestamp_value  # Add valid timestamp to 'timestamps' dictionary
-                else:
-                    raise ValueError(f"Timestamp '{key}' must be a string.")
+            # if "_timestamp" in key:
+            #     timestamp_value = value.pop(key)  # Remove the key-value pair
+            #     if isinstance(timestamp_value, str):
+            #         value["timestamps"][key] = timestamp_value  # Add valid timestamp to 'timestamps' dictionary
+            #     else:
+            #         raise ValueError(f"Timestamp '{key}' must be a string.")
 
     except Exception as e:
         raise ValueError(f"Error processing pointers: {e}")
