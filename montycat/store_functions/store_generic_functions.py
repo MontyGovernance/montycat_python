@@ -72,14 +72,13 @@ def convert_custom_keys_values(keys_values: dict) -> dict:
 
 def modify_pointers_timestamps(value: dict):
     """
-    Processes and modifies the dictionary by converting all '_pointer' entries into 
-    a consolidated 'pointers' dictionary and all '_timestamp' entries into a 
+    Processes and modifies the dictionary by converting all 'pointers' (Pointer type) entries into 
+    a consolidated 'pointers' dictionary and all 'timestamps' (TImestamp type) entries into a 
     'timestamps' dictionary. The function validates that each pointer is in the 
     correct format, and ensures that timestamps are valid strings.
     
     Args:
-        value (dict): The dictionary that may contain multiple fields, some of 
-                      which are expected to end in '_pointer' or '_timestamp'.
+        value (dict): The dictionary that may contain multiple fields
     
     Returns:
         dict: The modified dictionary containing two additional fields:
@@ -93,13 +92,6 @@ def modify_pointers_timestamps(value: dict):
     This function ensures that all pointer values are correctly processed and stored in the 
     'pointers' field, and all timestamp values are correctly stored in the 'timestamps' field.
     """
-    
-    # Initialize the pointers and timestamps dictionaries if they don't exist
-    # if "pointers" not in value:
-    #     value["pointers"] = {}
-    # if "timestamps" not in value:
-    #     value["timestamps"] = {}
-
     try:
         # # Iterate through the dictionary keys and process those ending with '_pointer' or '_timestamp'
         for key in list(value.keys()):
@@ -107,54 +99,16 @@ def modify_pointers_timestamps(value: dict):
                 
                 for k, v in value[key].items():
                     namespace, raw_key = v
-
-                    # Ensure the raw_key is properly converted to a valid format (either a string or custom key)
-
-                    if isinstance(raw_key, str) and raw_key.isdigit():
+                    if isinstance(raw_key, str) and raw_key.isdigit() or isinstance(raw_key, int):
                         processed_key = str(raw_key)
                     else:
                         processed_key = convert_custom_key(raw_key)
 
-                        value[key][k] = [namespace, processed_key]
-
-                    # Add the processed pointer to the 'pointers' dictionary
-                    # value[key] = [namespace, processed_key]
-
-                # Add the processed pointer to the 'pointers' dictionary
-                # value[key] = processed_key
-
-        #     # Process '_pointer' fields
-        #     if "_pointer" in key:
-        #         pointer_value = value.pop(key)  # Remove the key-value pair
-        #         if isinstance(pointer_value, list) and len(pointer_value) == 2:
-        #             namespace, raw_key = pointer_value
-                    
-        #             # Ensure the raw_key is properly converted to a valid format (either a string or custom key)
-        #             if isinstance(raw_key, str) and raw_key.isdigit():
-        #                 processed_key = str(raw_key)
-        #             else:
-        #                 processed_key = convert_custom_key(raw_key)
-                    
-        #             # Add the processed pointer to the 'pointers' dictionary
-        #             value["pointers"][key] = [namespace, processed_key]
-        #         else:
-        #             raise ValueError(f"Pointer '{key}' must be a list of [namespace, key].")
-            
-            # Process '_timestamp' fields
-            # if "_timestamp" in key:
-            #     timestamp_value = value.pop(key)  # Remove the key-value pair
-            #     if isinstance(timestamp_value, str):
-            #         value["timestamps"][key] = timestamp_value  # Add valid timestamp to 'timestamps' dictionary
-            #     else:
-            #         raise ValueError(f"Timestamp '{key}' must be a string.")
-
+                    value[key][k] = [namespace, processed_key]
     except Exception as e:
         raise ValueError(f"Error processing pointers: {e}")
-
     return value
 
-
-    
 def convert_to_binary_query(
         cls: type, 
         key: str = "", 

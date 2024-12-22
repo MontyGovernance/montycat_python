@@ -1,5 +1,4 @@
 from ..core.engine import Engine, send_data
-# from ..core.schema import Pointer
 from ..store_functions.store_generic_functions import handle_limit, connect_engine_, create_namespace_, drop_namespace_, drop_store_, show_store_properties_, convert_to_binary_query, convert_custom_key, convert_custom_keys, convert_custom_keys_values
 import asyncio
 from typing import Union
@@ -14,7 +13,6 @@ class generic_kv:
 
     @classmethod
     def _run_query(cls, query: str):
-        # print("QUERY", query)
         return asyncio.run(send_data(cls.host, cls.port, query))
     
     @classmethod

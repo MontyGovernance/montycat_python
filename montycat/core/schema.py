@@ -44,6 +44,7 @@ class Schema:
         
         # Ensure all fields are provided and validate types
         self.check_missing_fields(hints)
+        self.check_extra_fields(hints)
         self.validate_types()
 
     def __repr__(self):
@@ -71,20 +72,26 @@ class Schema:
             if getattr(self, attribute) is None:
                 raise ValueError(f"Missing required field: '{attribute}'")
     
+    def check_extra_fields(self, hints):
+        """Ensure no extra fields are present."""
+        # Get all defined fields based on type hints
+        defined_fields = set(hints.keys())
+
+        # Check for extra fields in the instance
+        for attribute in self.__dict__:
+            if attribute not in defined_fields and not attribute.startswith('_'):
+                raise ValueError(f"Unexpected field '{attribute}' found in the instance.")
+    
     def validate_types(self):
         hints = get_type_hints(self.__class__)
         for attribute, expected_type in hints.items():
             actual_value = getattr(self, attribute)
             origin = get_origin(expected_type)
             
-            # Enforce naming rules for specific types
             if expected_type is Pointer:
-
-                # put attribute into a new dict "pointers"
                 if 'pointers' not in self.__dict__:
                     self.pointers = {}
                 self.pointers[attribute] = [actual_value.namespace, actual_value.key]
-                #remove the attribute
                 delattr(self, attribute)
 
             if expected_type is Timestamp:
