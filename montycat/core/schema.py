@@ -6,6 +6,28 @@ class Timestamp:
 
     def serialize(self):
         return self.timestamp
+    
+    class range:
+        def __init__(self, start_timestamp, end_timestamp):
+            self.start_timestamp = start_timestamp
+            self.end_timestamp = end_timestamp
+
+        def serialize(self):
+            return {"range_timestamp": [self.start_timestamp, self.end_timestamp]}
+        
+    class after:
+        def __init__(self, after_timestamp):
+            self.after_timestamp = after_timestamp
+
+        def serialize(self):
+            return self.__dict__
+
+    class before:
+        def __init__(self, before_timestamp):
+            self.before_timestamp = before_timestamp
+
+        def serialize(self):
+            return self.__dict__
 
 
 class Pointer:
@@ -32,8 +54,15 @@ class Pointer:
             dict: A dictionary representation of the `Pointer` object.
         """
         return self.__dict__
+
+class SchemaMetaclass(type):
+    def __str__(cls) -> str:
+        return cls.__name__
     
-class Schema:
+    def __repr__(cls) -> str:
+        return cls.__name__
+
+class Schema(metaclass=SchemaMetaclass):
     def __init__(self, **kwargs):
         hints = get_type_hints(self.__class__)
         for key, value in kwargs.items():
@@ -41,11 +70,10 @@ class Schema:
         for attribute in hints:
             if not hasattr(self, attribute):
                 setattr(self, attribute, None)
-        
-        # Ensure all fields are provided and validate types
         self.check_missing_fields(hints)
         self.check_extra_fields(hints)
         self.validate_types()
+        self.schema = self.__class__.__name__
 
     def __repr__(self):
         return str(self.__dict__)
@@ -53,17 +81,10 @@ class Schema:
     def __str__(self):
         return str(self.__dict__)
     
-    def serialize(self):
-        for attr_name in dir(self):
-            if "_pointer" in attr_name:
-                attr_value = getattr(self, attr_name)
-                if hasattr(attr_value, "serialize"):
-                    setattr(self, attr_name, [attr_value.namespace, str(attr_value.key)])
-            if "_timestamp" in attr_name:
-                attr_value = getattr(self, attr_name)
-                if hasattr(attr_value, "serialize"):
-                    setattr(self, attr_name, attr_value.serialize())
-                    
+    def get_schema_name(self):
+        return self.__class__.__name__
+    
+    def serialize(self):                    
         return self.__dict__
 
     def check_missing_fields(self, hints):

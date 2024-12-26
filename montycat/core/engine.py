@@ -62,6 +62,9 @@ async def send_data(host: str, port: int, string: str):
     try:
         # Establish a connection to the server
         reader, writer = await asyncio.open_connection(host, port)        # Write the data string to the server
+
+        print(f"Sending data: {string}")
+
         writer.write(string + b"\n") #.encode()
         await writer.drain()
 

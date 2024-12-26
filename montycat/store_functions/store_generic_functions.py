@@ -1,6 +1,6 @@
 from ..core.engine import Engine, send_data
 from ..core.limit import Limit
-# from ..core.schema import Pointer
+from ..core.schema import Timestamp
 import asyncio
 import orjson
 import xxhash
@@ -105,6 +105,7 @@ def modify_pointers_timestamps(value: dict):
                         processed_key = convert_custom_key(raw_key)
 
                     value[key][k] = [namespace, processed_key]
+
     except Exception as e:
         raise ValueError(f"Error processing pointers: {e}")
     return value
@@ -151,8 +152,18 @@ def convert_to_binary_query(
 
     if len(bulk_keys_values) > 0:
         bulk_keys_values = {key: str(modify_pointers_timestamps(value)) for key, value in bulk_keys_values.items()}
+
+    if 'schema' in value:
+        cls.schema = value['schema']
+        del value['schema']
+    else:
+        cls.schema = None
+
+    # print('VALUE', value)
+    # print("cls", cls.schema)
             
     return orjson.dumps({
+        "schema": cls.schema,
         "request": cls.request,
         "username": cls.username,
         "password": cls.password,
@@ -185,6 +196,14 @@ def run_query(cls: type) -> None:
     """
     query = convert_to_binary_query(cls)
     return asyncio.run(send_data(cls.host, cls.port, query))
+
+def handle_search_criteria(search_criteria: dict) -> dict:
+    for key, value in search_criteria.items():
+        if isinstance(value, Timestamp.before) or isinstance(value, Timestamp.after) or isinstance(value, Timestamp.range):
+            search_criteria[key] = value.serialize()
+        if key == "schema":
+            search_criteria[key] = str(value)
+    return search_criteria
 
 def handle_limit(limit: Union[list, int]) -> dict:
     """

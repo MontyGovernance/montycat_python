@@ -1,5 +1,5 @@
 from ..core.engine import Engine, send_data
-from ..store_functions.store_generic_functions import handle_limit, connect_engine_, create_namespace_, drop_namespace_, drop_store_, show_store_properties_, convert_to_binary_query, convert_custom_key, convert_custom_keys, convert_custom_keys_values
+from ..store_functions.store_generic_functions import handle_limit, handle_search_criteria, connect_engine_, create_namespace_, drop_namespace_, drop_store_, show_store_properties_, convert_to_binary_query, convert_custom_key, convert_custom_keys, convert_custom_keys_values
 import asyncio
 from typing import Union
 
@@ -10,6 +10,7 @@ class generic_kv:
     request: str = "store"
     blockchain: bool = False
     limit_output: dict = {}
+    schema = None
 
     @classmethod
     def _run_query(cls, query: str):
@@ -17,7 +18,7 @@ class generic_kv:
     
     @classmethod
     def insert_custom_key(cls, custom_key: str, expire_sec: int = 0):
-        """       
+        """
         Args:
             custom_key: A custom key to insert into the store. This key can be used to retrieve the value later.
             expire_sec: The number of seconds before the inserted value expires.
@@ -316,9 +317,11 @@ class generic_kv:
         if not filters:  # Ensure filters are provided for the lookup
             raise ValueError("No criteria provided for the lookup.")
         
+        search_criteria = handle_search_criteria(filters)  # Normalize the search criteria
+        
         cls.command = "lookup_keys"  # Set the command for key lookup
         cls.limit_output = lim  # Set the limit for the query
-        query = convert_to_binary_query(cls, search_criteria=filters)  # Build the query with the filters
+        query = convert_to_binary_query(cls, search_criteria=search_criteria)  # Build the query with the filters
         return cls._run_query(query)  # Execute the query and return the result
     
     @classmethod
