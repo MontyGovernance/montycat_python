@@ -1,5 +1,5 @@
 from ..core.engine import Engine, send_data
-from ..store_functions.store_generic_functions import handle_limit, handle_search_criteria, connect_engine_, create_namespace_, drop_namespace_, drop_store_, show_store_properties_, convert_to_binary_query, convert_custom_key, convert_custom_keys, convert_custom_keys_values
+from ..store_functions.store_generic_functions import handle_limit, handle_timestamps_schema, connect_engine_, create_namespace_, drop_namespace_, drop_store_, show_store_properties_, convert_to_binary_query, convert_custom_key, convert_custom_keys, convert_custom_keys_values
 import asyncio
 from typing import Union
 
@@ -144,7 +144,7 @@ class generic_kv:
         return cls._run_query(query)  # Run the query and return the result
 
     @classmethod
-    def update_value(cls, key: Union[int, str] = "", custom_key: str = "", **filters):
+    def update_value(cls, key: Union[int, str] = "", custom_key: str = "", expire_sec: int = 0, **filters):
         """
         Update the value associated with a given key in the store. If a custom key is provided,
         it will be converted to the appropriate format before updating.
@@ -171,8 +171,10 @@ class generic_kv:
             raise ValueError("No filters provided for update.")
         if not key:  # Ensure a key is provided for the update operation
             raise ValueError("No key provided for update.")
+        
+        value = handle_timestamps_schema(filters)  # Normalize the value to update
 
-        query = convert_to_binary_query(cls, key=key, value=filters)  # Convert the key and filters into a binary query format
+        query = convert_to_binary_query(cls, key=key, value=value, expire_sec=expire_sec)  # Convert the key and filters into a binary query format
         # print(query)  # Print the query for debugging or logging purposes
         return cls._run_query(query)  # Run the query and return the result
 
@@ -254,6 +256,10 @@ class generic_kv:
         """
         lim = handle_limit(limit)  # Handle and normalize the limit argument
 
+        #convert keys into str if they are integers
+
+        bulk_keys = [str(key) for key in bulk_keys]
+
         if len(bulk_custom_keys) > 0:
             bulk_custom_keys = convert_custom_keys(bulk_custom_keys)  # Convert custom keys if provided
             bulk_keys += bulk_custom_keys  # Append the custom keys to the bulk_keys list
@@ -317,7 +323,7 @@ class generic_kv:
         if not filters:  # Ensure filters are provided for the lookup
             raise ValueError("No criteria provided for the lookup.")
         
-        search_criteria = handle_search_criteria(filters)  # Normalize the search criteria
+        search_criteria = handle_timestamps_schema(filters)  # Normalize the search criteria
         
         cls.command = "lookup_keys"  # Set the command for key lookup
         cls.limit_output = lim  # Set the limit for the query
@@ -345,9 +351,11 @@ class generic_kv:
         if not filters:  # Ensure filters are provided for the lookup
             raise ValueError("No criteria provided for the lookup.")
         
+        search_criteria = handle_timestamps_schema(filters)  # Normalize the search criteria
+
         cls.command = "lookup_values"  # Set the command for value lookup
         cls.limit_output = lim  # Set the limit for the query
-        query = convert_to_binary_query(cls, search_criteria=filters, with_pointers=with_pointers)  # Build the query
+        query = convert_to_binary_query(cls, search_criteria=search_criteria, with_pointers=with_pointers)  # Build the query
         return cls._run_query(query)  # Execute the query and return the result
 
     @classmethod

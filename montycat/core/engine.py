@@ -60,21 +60,18 @@ async def send_data(host: str, port: int, string: str):
     writer = None
 
     try:
-        # Establish a connection to the server
-        reader, writer = await asyncio.open_connection(host, port)        # Write the data string to the server
+        reader, writer = await asyncio.open_connection(host, port)
 
-        print(f"Sending data: {string}")
+        # print(f"Sending data: {string}")
 
-        writer.write(string + b"\n") #.encode()
+        writer.write(string + b"\n")
         await writer.drain()
 
         try:
-            # Wait for the response from the server with a timeout
             resp = await asyncio.wait_for(reader.readuntil(b"\n"), timeout=120)
             resp = resp.decode().strip()
 
             try:
-                # Parse the response using a custom function (e.g., orjson parsing)
                 resp = recursive_parse_orjson(resp)
             except Exception as parse_error:
                 print(f"Failed to parse response: {parse_error}")
@@ -120,36 +117,3 @@ def recursive_parse_orjson(data):
         return data
     else:
         return data
-
-
-# def recursive_parse_orjson(data):
-#     """
-#     Recursively parses nested JSON strings in the provided data using orjson for faster parsing.
-    
-#     Args:
-#         data: A Python object that may contain JSON strings, including nested structures.
-        
-#     Returns:
-#         A fully parsed Python object with all nested JSON strings converted.
-#     """
-#     if isinstance(data, dict):
-#         return {
-#             key: recursive_parse_orjson(value)
-#             for key, value in data.items()
-#         }
-#     elif isinstance(data, tuple):
-#         return tuple(recursive_parse_orjson(element) if not element.isdigit() else element for element in data)
-#     elif isinstance(data, list):
-#         return [recursive_parse_orjson(element) if not element.isdigit() else element for element in data]
-#     elif isinstance(data, str):
-#         try:
-#             parsed_data = orjson.loads(data)
-#             return recursive_parse_orjson(parsed_data)
-#         except orjson.JSONDecodeError:
-#             return data
-    
-#     elif isinstance(data, (int, float)):
-#         return data
-    
-#     else:
-#         return data

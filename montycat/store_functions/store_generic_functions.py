@@ -70,7 +70,7 @@ def convert_custom_keys_values(keys_values: dict) -> dict:
     """
     return {convert_custom_key(key): value for key, value in keys_values.items()}
 
-def modify_pointers_timestamps(value: dict):
+def modify_pointers(value: dict):
     """
     Processes and modifies the dictionary by converting all 'pointers' (Pointer type) entries into 
     a consolidated 'pointers' dictionary and all 'timestamps' (TImestamp type) entries into a 
@@ -93,17 +93,14 @@ def modify_pointers_timestamps(value: dict):
     'pointers' field, and all timestamp values are correctly stored in the 'timestamps' field.
     """
     try:
-        # # Iterate through the dictionary keys and process those ending with '_pointer' or '_timestamp'
         for key in list(value.keys()):
             if key == "pointers":
-                
                 for k, v in value[key].items():
                     namespace, raw_key = v
                     if isinstance(raw_key, str) and raw_key.isdigit() or isinstance(raw_key, int):
                         processed_key = str(raw_key)
                     else:
                         processed_key = convert_custom_key(raw_key)
-
                     value[key][k] = [namespace, processed_key]
 
     except Exception as e:
@@ -145,22 +142,19 @@ def convert_to_binary_query(
     """
     
     if len(value) > 0:
-        value = modify_pointers_timestamps(value)
+        value = modify_pointers(value)
 
     if len(bulk_values) > 0:
-        bulk_values = [str(modify_pointers_timestamps(value)) for value in bulk_values]
+        bulk_values = [str(modify_pointers(value)) for value in bulk_values]
 
     if len(bulk_keys_values) > 0:
-        bulk_keys_values = {key: str(modify_pointers_timestamps(value)) for key, value in bulk_keys_values.items()}
+        bulk_keys_values = {key: str(modify_pointers(value)) for key, value in bulk_keys_values.items()}
 
     if 'schema' in value:
         cls.schema = value['schema']
         del value['schema']
     else:
         cls.schema = None
-
-    # print('VALUE', value)
-    # print("cls", cls.schema)
             
     return orjson.dumps({
         "schema": cls.schema,
@@ -197,12 +191,12 @@ def run_query(cls: type) -> None:
     query = convert_to_binary_query(cls)
     return asyncio.run(send_data(cls.host, cls.port, query))
 
-def handle_search_criteria(search_criteria: dict) -> dict:
+def handle_timestamps_schema(search_criteria: dict) -> dict:
     for key, value in search_criteria.items():
-        if isinstance(value, Timestamp.before) or isinstance(value, Timestamp.after) or isinstance(value, Timestamp.range):
+        if isinstance(value, Timestamp.before) or isinstance(value, Timestamp.after) or isinstance(value, Timestamp.range) or isinstance(value, Timestamp):
             search_criteria[key] = value.serialize()
         if key == "schema":
-            search_criteria[key] = str(value)
+            search_criteria[key] = str(value) #by default schema is a class name
     return search_criteria
 
 def handle_limit(limit: Union[list, int]) -> dict:
