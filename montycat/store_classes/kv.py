@@ -1,5 +1,5 @@
 from ..core.engine import Engine, send_data
-from ..store_functions.store_generic_functions import handle_limit, handle_timestamps_schema, connect_engine_, create_namespace_, drop_namespace_, drop_store_, show_store_properties_, convert_to_binary_query, convert_custom_key, convert_custom_keys, convert_custom_keys_values
+from ..store_functions.store_generic_functions import handle_pointers_for_update, handle_limit, handle_timestamps_and_schema, connect_engine_, create_namespace_, drop_namespace_, drop_store_, show_store_properties_, convert_to_binary_query, convert_custom_key, convert_custom_keys, convert_custom_keys_values
 import asyncio
 from typing import Union
 
@@ -110,6 +110,7 @@ class generic_kv:
             A list of keys in the store. Class 'str' if the get operation failed.
         """
         lim = handle_limit(limit)
+
         cls.command = "get_keys"
         cls.limit_output = lim
         query = convert_to_binary_query(cls)
@@ -172,7 +173,11 @@ class generic_kv:
         if not key:  # Ensure a key is provided for the update operation
             raise ValueError("No key provided for update.")
         
-        value = handle_timestamps_schema(filters)  # Normalize the value to update
+        value = handle_timestamps_and_schema(filters)  # Normalize the value to update
+
+        value = handle_pointers_for_update(value)  # Normalize the pointers in the value
+
+        print("MOD VAL", value)
 
         query = convert_to_binary_query(cls, key=key, value=value, expire_sec=expire_sec)  # Convert the key and filters into a binary query format
         # print(query)  # Print the query for debugging or logging purposes
@@ -254,23 +259,22 @@ class generic_kv:
         Raises:
             ValueError: If both `bulk_keys` and `bulk_custom_keys` are empty.
         """
-        lim = handle_limit(limit)  # Handle and normalize the limit argument
+        lim = handle_limit(limit)
 
         #convert keys into str if they are integers
-
-        bulk_keys = [str(key) for key in bulk_keys]
+        # bulk_keys = [str(key) for key in bulk_keys]
 
         if len(bulk_custom_keys) > 0:
             bulk_custom_keys = convert_custom_keys(bulk_custom_keys)  # Convert custom keys if provided
-            bulk_keys += bulk_custom_keys  # Append the custom keys to the bulk_keys list
+            bulk_keys += bulk_custom_keys
         
-        if not bulk_keys:  # Ensure at least one key exists for the operation
+        if not bulk_keys:
             raise ValueError("No keys provided for retrieval.")
         
-        cls.command = "get_bulk"  # Set the command for bulk retrieval
-        cls.limit_output = lim  # Set the limit for the query
-        query = convert_to_binary_query(cls, bulk_keys=bulk_keys, with_pointers=with_pointers)  # Create the query
-        return cls._run_query(query)  # Execute and return the result
+        cls.command = "get_bulk"
+        cls.limit_output = lim
+        query = convert_to_binary_query(cls, bulk_keys=bulk_keys, with_pointers=with_pointers)
+        return cls._run_query(query)
     
     @classmethod
     def update_bulk(cls, bulk_keys_values: dict = {}, bulk_custom_keys_values: dict = {}):
@@ -295,6 +299,9 @@ class generic_kv:
         if len(bulk_custom_keys_values) > 0:
             bulk_custom_keys_values = convert_custom_keys_values(bulk_custom_keys_values)  # Convert custom keys and values
             bulk_keys_values = {**bulk_keys_values, **bulk_custom_keys_values}  # Merge the dictionaries
+
+        for k, v in bulk_keys_values.items():
+            bulk_custom_keys_values[k] = handle_timestamps_and_schema(v)  # Normalize the values to update
         
         if not bulk_keys_values:  # Ensure at least one key-value pair exists for the operation
             raise ValueError("No key-value pairs provided for update.")
@@ -318,17 +325,26 @@ class generic_kv:
         Raises:
             ValueError: If no filters are provided.
         """
-        lim = handle_limit(limit)  # Normalize the limit argument
+        lim = handle_limit(limit)# Normalize the limit argument
 
         if not filters:  # Ensure filters are provided for the lookup
             raise ValueError("No criteria provided for the lookup.")
         
-        search_criteria = handle_timestamps_schema(filters)  # Normalize the search criteria
+        search_criteria = handle_timestamps_and_schema(filters)  # Normalize the search criteria
+
+        if search_criteria.get("schema"):
+            cls.schema = str(search_criteria.get("schema"))
+            del search_criteria["schema"]
+        else:
+            cls.schema = None
+
+        # if schema:
+        #     cls.schema = schema
         
-        cls.command = "lookup_keys"  # Set the command for key lookup
-        cls.limit_output = lim  # Set the limit for the query
-        query = convert_to_binary_query(cls, search_criteria=search_criteria)  # Build the query with the filters
-        return cls._run_query(query)  # Execute the query and return the result
+        cls.command = "lookup_keys"
+        cls.limit_output = lim
+        query = convert_to_binary_query(cls, search_criteria=search_criteria)
+        return cls._run_query(query)
     
     @classmethod
     def lookup_values_where(cls, limit=0, with_pointers: bool = False, **filters):
@@ -346,17 +362,26 @@ class generic_kv:
         Raises:
             ValueError: If no filters are provided.
         """
-        lim = handle_limit(limit)  # Normalize the limit argument
+        lim = handle_limit(limit) # Normalize the limit argument
 
-        if not filters:  # Ensure filters are provided for the lookup
+        if not filters: # Ensure filters are provided for the lookup
             raise ValueError("No criteria provided for the lookup.")
         
-        search_criteria = handle_timestamps_schema(filters)  # Normalize the search criteria
+        search_criteria = handle_timestamps_and_schema(filters) # Normalize the search criteria
 
-        cls.command = "lookup_values"  # Set the command for value lookup
-        cls.limit_output = lim  # Set the limit for the query
-        query = convert_to_binary_query(cls, search_criteria=search_criteria, with_pointers=with_pointers)  # Build the query
-        return cls._run_query(query)  # Execute the query and return the result
+        if search_criteria.get("schema"):
+            cls.schema = str(search_criteria.get("schema"))
+            del search_criteria["schema"]
+        else:
+            cls.schema = None
+
+        # if schema:
+        #     cls.schema = schema
+
+        cls.command = "lookup_values"
+        cls.limit_output = lim
+        query = convert_to_binary_query(cls, search_criteria=search_criteria, with_pointers=with_pointers)
+        return cls._run_query(query)
 
     @classmethod
     def list_all_depending_keys(cls, key: Union[str, int] = "", custom_key: str = ""):

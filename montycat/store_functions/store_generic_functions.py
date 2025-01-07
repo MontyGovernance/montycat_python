@@ -1,10 +1,10 @@
 from ..core.engine import Engine, send_data
 from ..core.limit import Limit
-from ..core.schema import Timestamp
+from ..core.schema import Timestamp, Pointer
 import asyncio
 import orjson
 import xxhash
-from typing import Union
+from typing import Type, Dict, List, Union, Any
 
 def connect_engine_(cls: type, engine: Engine) -> None:
     """
@@ -52,6 +52,14 @@ def convert_custom_keys(keys: list) -> list:
     to each one to ensure they are converted to hashed integers.
     """
     return [convert_custom_key(key) for key in keys]
+
+def handle_pointers_for_update(value: dict) -> dict:
+    for k, v in value.items():
+        print(v)
+        if isinstance(v, Pointer):
+            print("POINTER", type(v))
+            value[k] = v.serialize()
+    return value
 
 def convert_custom_keys_values(keys_values: dict) -> dict:
     """
@@ -108,55 +116,94 @@ def modify_pointers(value: dict):
     return value
 
 def convert_to_binary_query(
-        cls: type, 
-        key: str = "", 
-        search_criteria: dict = {}, 
-        value: dict = {}, 
-        expire_sec: int = 0, 
-        bulk_values: list = [], 
-        bulk_keys: list = [],
-        bulk_keys_values: dict = {},
-        with_pointers: bool = False
-        ) -> bytes:
+    cls: Type,
+    key: str = "",
+    search_criteria: Dict[str, Any] = None,
+    value: Dict[str, Any] = None,
+    expire_sec: int = 0,
+    bulk_values: List[Dict[str, Any]] = None,
+    bulk_keys: List[str] = None,
+    bulk_keys_values: Dict[str, Any] = None,
+    with_pointers: bool = False
+) -> bytes:
     """
-    Converts the given parameters into a binary query format suitable for transmission.
+    Converts parameters into a binary query format suitable for transmission.
     
     Args:
-        cls (type): The class for which the query is being generated. This includes 
-                    connection details and command settings.
-        key (str): A single key to be included in the query (default is empty string).
-        search_criteria (dict): A dictionary of search filters to be included (default is empty dict).
-        value (dict): The value associated with the key for the query (default is empty dict).
-        expire_sec (int): The expiration time for the value in seconds (default is 0).
-        bulk_values (list): A list of values for bulk operations (default is empty list).
-        bulk_keys (list): A list of keys for bulk operations (default is empty list).
-        bulk_keys_values (dict): A dictionary of keys and values for bulk operations (default is empty dict).
-        with_pointers (bool): Flag to include pointers in the query (default is False).
+        cls: Query class containing connection details and command settings
+        key: Single key for the query
+        search_criteria: Search filters dictionary
+        value: Key-associated value dictionary
+        expire_sec: Value expiration time in seconds
+        bulk_values: List of values for bulk operations
+        bulk_keys: List of keys for bulk operations
+        bulk_keys_values: Dictionary of keys and values for bulk operations
+        with_pointers: Flag to include pointers
     
     Returns:
-        bytes: A binary-encoded query in the appropriate format.
-    
-    This function prepares all input parameters and structures them into a query, 
-    ensuring that any pointers or custom key conversions are handled. The query is 
-    then serialized into a binary format using `orjson`.
+        bytes: Binary-encoded query in appropriate format
+        
+    Raises:
+        ValueError: If bulk values contain multiple schemas
     """
+    # Initialize with empty defaults
+    search_criteria = search_criteria or {}
+    value = value or {}
+    bulk_values = bulk_values or []
+    bulk_keys = bulk_keys or []
+    bulk_keys_values = bulk_keys_values or {}
     
-    if len(value) > 0:
+    # Process single value
+    if value:
         value = modify_pointers(value)
+    
+    # Process bulk values and handle schema validation
+    if bulk_values:
+        # Extract schemas in single pass
+        schemas = []
+        for item in bulk_values:
+            if 'schema' in item:
+                schemas.append(item['schema'])
+            else:
+                schemas.append(None)
+        
+        # Validate schemas
+        unique_schemas = set(schemas)
+        if len(unique_schemas) > 1:
+            raise ValueError("Bulk values should fit only one schema")
+        
+        # Set schema and clean bulk values
+        cls.schema = schemas[0] if schemas else None
+        bulk_values = [
+            str(modify_pointers({k: v for k, v in item.items() if k != 'schema'}))
+            for item in bulk_values
+        ]
+    
+    # Process bulk key-values if present
+    if bulk_keys_values:
+        bulk_keys_values = {
+            k: str(modify_pointers(v)) 
+            for k, v in bulk_keys_values.items()
+        }
 
-    if len(bulk_values) > 0:
-        bulk_values = [str(modify_pointers(value)) for value in bulk_values]
-
-    if len(bulk_keys_values) > 0:
-        bulk_keys_values = {key: str(modify_pointers(value)) for key, value in bulk_keys_values.items()}
-
+    if bulk_keys:
+        bulk_keys = [str(k) for k in bulk_keys]
+    
+    # Handle schema from single value after bulk processing
     if 'schema' in value:
-        cls.schema = value['schema']
-        del value['schema']
-    else:
-        cls.schema = None
-            
-    return orjson.dumps({
+        cls.schema = value.pop('schema')
+    # else:
+    #     cls.schema = None
+    
+    # Efficient boolean normalization
+    def normalize_bools(s: str) -> str:
+        return s.replace("True", "true").replace("False", "false")
+    
+    # if cls.schema is not None:
+    #     cls.schema = str(cls.schema)
+    
+    # Construct query dictionary with normalized values
+    query_dict = {
         "schema": cls.schema,
         "request": cls.request,
         "username": cls.username,
@@ -167,16 +214,18 @@ def convert_to_binary_query(
         "distributed": cls.distributed,
         "limit_output": cls.limit_output,
         "key": str(key),
-        "value": str(value).replace("True", "true").replace("False", "false"),
-        "command": cls.command, 
+        "value": normalize_bools(str(value)),
+        "command": cls.command,
         "expire": expire_sec,
-        "bulk_values": [str(value).replace("True", "true").replace("False", "false") for value in bulk_values],
+        "bulk_values": [normalize_bools(v) for v in bulk_values],
         "bulk_keys": bulk_keys,
-        "bulk_keys_values": {key: str(value).replace("True", "true").replace("False", "false") for key, value in bulk_keys_values.items()},
+        "bulk_keys_values": {k: normalize_bools(str(v)) for k, v in bulk_keys_values.items()},
         "blockchain": cls.blockchain,
-        "search_criteria": str(search_criteria).replace("True", "true").replace("False", "false"),
-        'with_pointers': with_pointers,
-    })
+        "search_criteria": normalize_bools(str(search_criteria)),
+        "with_pointers": with_pointers,
+    }
+        
+    return orjson.dumps(query_dict)
 
 def run_query(cls: type) -> None:
     """
@@ -191,12 +240,12 @@ def run_query(cls: type) -> None:
     query = convert_to_binary_query(cls)
     return asyncio.run(send_data(cls.host, cls.port, query))
 
-def handle_timestamps_schema(search_criteria: dict) -> dict:
+def handle_timestamps_and_schema(search_criteria: dict) -> dict:
     for key, value in search_criteria.items():
         if isinstance(value, Timestamp.before) or isinstance(value, Timestamp.after) or isinstance(value, Timestamp.range) or isinstance(value, Timestamp):
             search_criteria[key] = value.serialize()
-        if key == "schema":
-            search_criteria[key] = str(value) #by default schema is a class name
+        # if key == "schema":
+        #     search_criteria[key] = str(value) #by default schema is a class name
     return search_criteria
 
 def handle_limit(limit: Union[list, int]) -> dict:
