@@ -1,5 +1,5 @@
 from ..core.engine import Engine, send_data
-from ..store_functions.store_generic_functions import handle_pointers_for_update, handle_limit, handle_timestamps_and_schema, connect_engine_, create_namespace_, drop_namespace_, drop_store_, show_store_properties_, convert_to_binary_query, convert_custom_key, convert_custom_keys, convert_custom_keys_values
+from ..store_functions.store_generic_functions import handle_pointers_for_update, handle_limit, handle_timestamps_and_schema, connect_engine_inner, create_namespace_raw, remove_namespace_raw, show_store_properties_, convert_to_binary_query, convert_custom_key, convert_custom_keys, convert_custom_keys_values
 import asyncio
 from typing import Union
 
@@ -177,7 +177,7 @@ class generic_kv:
 
         value = handle_pointers_for_update(value)  # Normalize the pointers in the value
 
-        print("MOD VAL", value)
+        # print("MOD VAL", value)
 
         query = convert_to_binary_query(cls, key=key, value=value, expire_sec=expire_sec)  # Convert the key and filters into a binary query format
         # print(query)  # Print the query for debugging or logging purposes
@@ -427,19 +427,23 @@ class generic_kv:
     
     @classmethod
     def connect_engine(cls, engine: Engine) -> None:
-        connect_engine_(cls, engine)
+        connect_engine_inner(cls, engine)
 
     @classmethod  
     def create_namespace(cls):
-        return create_namespace_(cls)
+        return create_namespace_raw(cls)
     
     @classmethod  
-    def drop_namespace(cls):
-        return drop_namespace_(cls)
+    def remove_namespace(cls):
+        return remove_namespace_raw(cls)
     
-    @classmethod
-    def drop_store(cls):
-        drop_store_(cls)
+    # @classmethod
+    # def remove_store(cls):
+    #     remove_store_raw(cls)
+
+    # @classmethod
+    # def create_store(cls):
+    #     create_store_raw(cls)
 
     @classmethod
     def show_store_properties(cls):

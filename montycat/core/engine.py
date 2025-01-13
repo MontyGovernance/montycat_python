@@ -1,5 +1,6 @@
 import asyncio
 import orjson
+from typing import Union
 
 class Engine:
     """
@@ -32,6 +33,143 @@ class Engine:
         self.password = password
         self.store = store
 
+    
+    def remove_store(self, persistent: bool = False):
+        """
+        Removes the current store from the engine configuration.
+
+        This method clears the store attribute from the engine, effectively 
+        disconnecting the engine from any specific data store.
+        """
+        query = {
+            "raw": ['remove_store', "store", self.store, "persistent", "y" if persistent else "n"],
+            "superowner_credentials": [self.username, self.password]
+        }
+
+        return asyncio.run(send_data(self.host, self.port, orjson.dumps(query)))
+    
+    def create_store(self, persistent: bool = False):
+        """
+        Creates a new store on the server.
+
+        This method sends a request to the server to create a new store with the 
+        specified name and persistence settings. The store is created with the 
+        provided credentials and returns a success message or an error response.
+        """
+        
+        query = {
+            "raw": ['create_store', "store", self.store, "persistent", "y" if persistent else "n"],
+            "superowner_credentials": [self.username, self.password]
+        }
+
+        return asyncio.run(send_data(self.host, self.port, orjson.dumps(query)))
+    
+    def grant_to(self, owner: str, permission: str, namespaces: Union[list, str, None] = None):
+        """
+        Grants a permission to a user on the current store.
+
+        This method sends a request to the server to grant a specific permission 
+        to a user on the current store. The permission can be 'read', 'write', or 'admin'.
+        """
+
+        valid_permissions = ['read', 'write', 'all']
+
+        if str(permission) not in valid_permissions:
+            raise ValueError(f"Invalid permission: {permission}. Valid permissions are: {valid_permissions}")
+
+        query = {
+            "raw": ['grant_to', "owner", owner, "permission", str(permission), "store", self.store],
+            "superowner_credentials": [self.username, self.password]
+        }
+
+        if namespaces:
+
+            query["raw"].extend(["namespaces"])
+
+            if isinstance(namespaces, str):
+                query["raw"].extend([namespaces])
+            elif isinstance(namespaces, list):
+
+                for each in namespaces:
+                    if isinstance(each, type):
+                        query["raw"].extend([each.namespace])
+                    else:
+                        query["raw"].extend([each])
+
+            elif isinstance(namespaces, type):
+                query["raw"].extend([namespaces.namespace])
+
+        return asyncio.run(send_data(self.host, self.port, orjson.dumps(query)))
+    
+    def revoke_from(self, owner: str, permission: str, namespaces: Union[list, str, type, None] = None):
+        """
+        Revokes a permission from a user on the current store.
+
+        This method sends a request to the server to revoke a specific permission 
+        from a user on the current store. The permission can be 'read', 'write', or 'all'.
+        """
+
+        valid_permissions = ['read', 'write', 'all']
+
+        if str(permission) not in valid_permissions:
+            raise ValueError(f"Invalid permission: {permission}. Valid permissions are: {valid_permissions}")
+
+        query = {
+            "raw": ['revoke_from', "owner", owner, "permission", str(permission), "store", self.store],
+            "superowner_credentials": [self.username, self.password]
+        }
+
+        if namespaces:
+
+            query["raw"].extend(["namespaces"])
+
+            if isinstance(namespaces, str):
+                query["raw"].extend([namespaces])
+            elif isinstance(namespaces, list):
+
+                for each in namespaces:
+                    if isinstance(each, type):
+                        query["raw"].extend([each.namespace])
+                    else:
+                        query["raw"].extend([each])
+
+            elif isinstance(namespaces, type):
+                query["raw"].extend([namespaces.namespace])
+
+        return asyncio.run(send_data(self.host, self.port, orjson.dumps(query)))
+    
+    def create_owner(self, owner: str, password: str):
+        """
+        Creates a new owner with the specified credentials.
+
+        This method sends a request to the server to create a new owner with the 
+        specified username and password. The owner is created with the provided 
+        credentials and returns a success message or an error response.
+        """
+
+        query = {
+            "raw": ['create_owner', "username", owner, "password", password],
+            "superowner_credentials": [self.username, self.password]
+        }
+
+        return asyncio.run(send_data(self.host, self.port, orjson.dumps(query)))
+    
+    def remove_owner(self, owner: str):
+        """
+        Removes an owner from the server.
+
+        This method sends a request to the server to remove an existing owner 
+        with the specified username. The owner is removed from the server and 
+        returns a success message or an error response.
+        """
+
+        query = {
+            "raw": ['remove_owner', "username", owner],
+            "superowner_credentials": [self.username, self.password]
+        }
+
+        return asyncio.run(send_data(self.host, self.port, orjson.dumps(query)))
+        
 
 async def send_data(host: str, port: int, string: str):
     """
@@ -64,6 +202,10 @@ async def send_data(host: str, port: int, string: str):
 
         # print(f"Sending data: {string}")
 
+        # if raw:
+        #     print("Sending raw data", string)
+        #     string = "raw " + string
+        
         writer.write(string + b"\n")
         await writer.drain()
 
@@ -117,3 +259,19 @@ def recursive_parse_orjson(data):
         return data
     else:
         return data
+
+class MetaclassPermission(type):
+    def __str__(cls):
+        return cls.permission
+    
+    def __repr__(cls):
+        return cls.permission
+
+class Permission:
+    class read(metaclass=MetaclassPermission):
+        permission = "read"
+    class write(metaclass=MetaclassPermission):
+        permission = "write"
+    class all(metaclass=MetaclassPermission):
+        permission = "all"
+    

@@ -6,7 +6,7 @@ import orjson
 import xxhash
 from typing import Type, Dict, List, Union, Any
 
-def connect_engine_(cls: type, engine: Engine) -> None:
+def connect_engine_inner(cls: type, engine: Engine) -> None:
     """
     Establishes a connection to the specified engine, setting the necessary connection details.
     
@@ -115,6 +115,9 @@ def modify_pointers(value: dict):
         raise ValueError(f"Error processing pointers: {e}")
     return value
 
+def normalize_bools(s: str) -> str:
+    return s.replace("True", "true").replace("False", "false")
+
 def convert_to_binary_query(
     cls: Type,
     key: str = "",
@@ -196,8 +199,7 @@ def convert_to_binary_query(
     #     cls.schema = None
     
     # Efficient boolean normalization
-    def normalize_bools(s: str) -> str:
-        return s.replace("True", "true").replace("False", "false")
+
     
     # if cls.schema is not None:
     #     cls.schema = str(cls.schema)
@@ -226,6 +228,15 @@ def convert_to_binary_query(
     }
         
     return orjson.dumps(query_dict)
+        
+def run_raw_query(cls: type, query: str) -> None:
+
+    request = {
+        "raw": query,
+        "superowner_credentials": [cls.username, cls.password]
+    }
+
+    return asyncio.run(send_data(cls.host, cls.port, orjson.dumps(request)))
 
 def run_query(cls: type) -> None:
     """
@@ -294,21 +305,21 @@ def handle_limit(limit: Union[list, int]) -> dict:
     # Return the pagination limit as a dictionary
     return limit_instance.return_limit()
 
-def create_namespace_(cls: type) -> None:
+def create_namespace_raw(cls: type) -> None:
     """
     Creates a new namespace using the provided class settings.
-    
+
     Args:
         cls (type): The class containing the configuration details for the namespace creation.
     
-    This function sets the class to perform a "create_namespace" command and sends 
-    a query to execute it.
+    This function sets the class to perform a "create_namespace" command and sends
+    a raw query to execute it.
     """
-    cls.command = "create_namespace"
-    cls.request = "utils"
-    return run_query(cls)
 
-def drop_namespace_(cls: type) -> None:
+    query = ["create_namespace", "store", cls.store, "namespace", cls.namespace, "persistent", "y" if cls.persistent else "n"]
+    return run_raw_query(cls, query)
+
+def remove_namespace_raw(cls: type) -> None:
     """
     Drops the namespace associated with the provided class settings.
     
@@ -318,23 +329,34 @@ def drop_namespace_(cls: type) -> None:
     This function sets the class to perform a "drop_namespace" command and sends 
     a query to execute it.
     """
-    cls.command = "drop_namespace"
-    cls.request = "utils"
-    return run_query(cls)
+    query = ["remove_namespace", "store", cls.store, "namespace", cls.namespace, "persistent", "y" if cls.persistent else "n"]
+    return run_raw_query(cls, query)
 
-def drop_store_(cls: type) -> None:
-    """
-    Drops the store associated with the provided class settings.
+# def remove_store_raw(cls: type) -> None:
+#     """
+#     Drops the store associated with the provided class settings.
     
-    Args:
-        cls (type): The class containing the configuration details for the store drop.
+#     Args:
+#         cls (type): The class containing the configuration details for the store drop.
     
-    This function sets the class to perform a "drop_store" command and prints 
-    a message that the store is being dropped.
-    """
-    cls.command = "drop_store"
-    cls.request = "utils"
-    return print('DROP', cls.store)
+#     This function sets the class to perform a "drop_store" command and prints 
+#     a message that the store is being dropped.
+#     """
+#     query = ["remove_store", "store", cls.store]
+#     return run_raw_query(cls, query)
+
+# def create_store_raw(cls: type) -> None:
+#     """
+#     Creates a new store using the provided class settings.
+    
+#     Args:
+#         cls (type): The class containing the configuration details for the store creation.
+    
+#     This function sets the class to perform a "create_store" command and sends 
+#     a query to execute it.
+#     """
+#     query = ["create_store", "store", cls.store, "persistent", "y" if cls.persistent else "n", "distributed", "y" if cls.distributed else "n"]
+#     return run_raw_query(cls, query)
 
 def show_store_properties_(cls: type) -> None:
     """
