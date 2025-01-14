@@ -169,6 +169,21 @@ class Engine:
         }
 
         return asyncio.run(send_data(self.host, self.port, orjson.dumps(query)))
+    
+    def list_owners(self):
+        """
+        Lists all owners on the server.
+
+        This method sends a request to the server to retrieve a list of all owners 
+        registered on the server. The list of owners is returned as a response.
+        """
+
+        query = {
+            "raw": ['list_owners'],
+            "superowner_credentials": [self.username, self.password]
+        }
+
+        return asyncio.run(send_data(self.host, self.port, orjson.dumps(query)))
         
 
 async def send_data(host: str, port: int, string: str):

@@ -437,13 +437,11 @@ class generic_kv:
     def remove_namespace(cls):
         return remove_namespace_raw(cls)
     
-    # @classmethod
-    # def remove_store(cls):
-    #     remove_store_raw(cls)
-
-    # @classmethod
-    # def create_store(cls):
-    #     create_store_raw(cls)
+    @classmethod
+    def list_all_schemas_in_namespace(cls):
+        cls.command = "list_all_schemas_in_namespace"
+        query = convert_to_binary_query(cls)
+        return cls._run_query(query)
 
     @classmethod
     def show_store_properties(cls):
