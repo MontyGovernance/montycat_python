@@ -1,5 +1,5 @@
 from ..core.engine import Engine, send_data
-from ..store_functions.store_generic_functions import handle_pointers_for_update, handle_limit, handle_timestamps_and_schema, connect_engine_inner, create_namespace_raw, remove_namespace_raw, show_store_properties_, convert_to_binary_query, convert_custom_key, convert_custom_keys, convert_custom_keys_values
+from ..store_functions.store_generic_functions import handle_pointers_for_update, handle_limit, handle_timestamps, connect_engine_inner, create_namespace_raw, remove_namespace_raw, show_store_properties_, convert_to_binary_query, convert_custom_key, convert_custom_keys, convert_custom_keys_values
 import asyncio
 from typing import Union
 
@@ -173,7 +173,7 @@ class generic_kv:
         if not key:  # Ensure a key is provided for the update operation
             raise ValueError("No key provided for update.")
         
-        value = handle_timestamps_and_schema(filters)  # Normalize the value to update
+        value = handle_timestamps(filters)  # Normalize the value to update
 
         value = handle_pointers_for_update(value)  # Normalize the pointers in the value
 
@@ -301,7 +301,7 @@ class generic_kv:
             bulk_keys_values = {**bulk_keys_values, **bulk_custom_keys_values}  # Merge the dictionaries
 
         for k, v in bulk_keys_values.items():
-            bulk_custom_keys_values[k] = handle_timestamps_and_schema(v)  # Normalize the values to update
+            bulk_custom_keys_values[k] = handle_timestamps(v)  # Normalize the values to update
         
         if not bulk_keys_values:  # Ensure at least one key-value pair exists for the operation
             raise ValueError("No key-value pairs provided for update.")
@@ -311,7 +311,7 @@ class generic_kv:
         return cls._run_query(query)  # Execute the query and return the result
     
     @classmethod
-    def lookup_keys_where(cls, limit: int = 0, **filters):
+    def lookup_keys_where(cls, limit: int = 0, schema: Union[str, None] = None, **filters):
         """
         Perform a lookup for keys matching the given filters with an optional limit on the number of records returned.
 
@@ -330,13 +330,18 @@ class generic_kv:
         if not filters:  # Ensure filters are provided for the lookup
             raise ValueError("No criteria provided for the lookup.")
         
-        search_criteria = handle_timestamps_and_schema(filters)  # Normalize the search criteria
+        search_criteria = handle_timestamps(filters)  # Normalize the search criteria
 
-        if search_criteria.get("schema"):
-            cls.schema = str(search_criteria.get("schema"))
-            del search_criteria["schema"]
-        else:
+        if schema:
+            cls.schema = str(schema)
+        else: 
             cls.schema = None
+
+        # if search_criteria.get("schema"):
+        #     cls.schema = str(search_criteria.get("schema"))
+        #     del search_criteria["schema"]
+        # else:
+        #     cls.schema = None
 
         # if schema:
         #     cls.schema = schema
@@ -347,7 +352,7 @@ class generic_kv:
         return cls._run_query(query)
     
     @classmethod
-    def lookup_values_where(cls, limit=0, with_pointers: bool = False, **filters):
+    def lookup_values_where(cls, limit=0, with_pointers: bool = False, schema: Union[str, None] = None, **filters):
         """
         Perform a lookup for values matching the given filters, with options to apply a limit and include pointer information.
 
@@ -367,13 +372,15 @@ class generic_kv:
         if not filters: # Ensure filters are provided for the lookup
             raise ValueError("No criteria provided for the lookup.")
         
-        search_criteria = handle_timestamps_and_schema(filters) # Normalize the search criteria
+        search_criteria = handle_timestamps(filters) # Normalize the search criteria
 
-        if search_criteria.get("schema"):
-            cls.schema = str(search_criteria.get("schema"))
-            del search_criteria["schema"]
-        else:
+        if schema:
+            cls.schema = str(schema)
+        else: 
             cls.schema = None
+            # del search_criteria["schema"]
+        # else:
+        #     cls.schema = None
 
         # if schema:
         #     cls.schema = schema

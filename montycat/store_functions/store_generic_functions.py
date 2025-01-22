@@ -251,7 +251,7 @@ def run_query(cls: type) -> None:
     query = convert_to_binary_query(cls)
     return asyncio.run(send_data(cls.host, cls.port, query))
 
-def handle_timestamps_and_schema(search_criteria: dict) -> dict:
+def handle_timestamps(search_criteria: dict) -> dict:
     for key, value in search_criteria.items():
         if isinstance(value, Timestamp.before) or isinstance(value, Timestamp.after) or isinstance(value, Timestamp.range) or isinstance(value, Timestamp):
             search_criteria[key] = value.serialize()
