@@ -13,8 +13,8 @@ class generic_kv:
     schema = None
 
     @classmethod
-    def _run_query(cls, query: str):
-        return asyncio.run(send_data(cls.host, cls.port, query))
+    async def _run_query(cls, query: str):
+        return await send_data(cls.host, cls.port, query) #asyncio.run(send_data(cls.host, cls.port, query))
     
     @classmethod
     def insert_custom_key(cls, custom_key: str, expire_sec: int = 0):
@@ -63,7 +63,7 @@ class generic_kv:
         return cls._run_query(query)
     
     @classmethod
-    def insert_value(cls, value: dict, expire_sec: int = 0):
+    async def insert_value(cls, value: dict, expire_sec: int = 0):
         """       
         Args:
             value: A Python class / dict to insert into the store.
@@ -77,7 +77,7 @@ class generic_kv:
             raise ValueError("No value provided for insertion.")
 
         query = convert_to_binary_query(cls, value=value, expire_sec=expire_sec)
-        return cls._run_query(query)
+        return await cls._run_query(query)
     
     @classmethod
     def get_value(cls, key: Union[int, str] = "", custom_key: str = "", with_pointers: bool = False):
