@@ -184,16 +184,14 @@ class Engine:
         }
 
         return asyncio.run(send_data(self.host, self.port, orjson.dumps(query)))
-        
 
 async def send_data(host: str, port: int, string: str):
     """
-    Asynchronously sends data to a remote server and receives a response.
+    Asynchronously sends data to a remote server and receives a response in 1MB chunks.
 
     This function connects to the specified server using the given host and port, 
-    sends the provided string, and waits for a response. The function handles timeouts, 
-    connection errors, and response parsing, ensuring that the data is returned in 
-    a usable format.
+    sends the provided string, and waits for a response. It reads data in fixed 
+    1MB chunks until a newline (`\n`) is encountered.
 
     Args:
         host (str): The hostname or IP address of the server.
@@ -201,7 +199,7 @@ async def send_data(host: str, port: int, string: str):
         string (str): The data to be sent to the server.
 
     Returns:
-        str: The server's response, which is either the parsed response data 
+        str: The server's response, either the parsed response data 
              or an error message if the operation fails.
              
     Raises:
@@ -209,39 +207,46 @@ async def send_data(host: str, port: int, string: str):
         ConnectionRefusedError: If the connection to the server is refused.
         Exception: If an unexpected error occurs during the connection or data processing.
     """
+    CHUNK_SIZE = 1024 * 1024  # 1MB
     resp = None
     writer = None
 
     try:
         reader, writer = await asyncio.open_connection(host, port)
 
-        # print(f"Sending data: {string}")
-
-        # if raw:
-        #     print("Sending raw data", string)
-        #     string = "raw " + string
-        
         writer.write(string + b"\n")
         await writer.drain()
 
-        try:
-            resp = await asyncio.wait_for(reader.readuntil(b"\n"), timeout=120)
-            resp = resp.decode().strip()
+        data = bytearray()
+
+        while True:
+            try:
+                chunk = await asyncio.wait_for(reader.read(CHUNK_SIZE), timeout=120)
+                if not chunk:  # Connection closed by the server
+                    break
+                
+                data.extend(chunk)
+
+                if b"\n" in chunk:
+                    break  # Stop when newline is found
+
+            except asyncio.TimeoutError:
+                resp = "Operation timed out"
+                break
+
+        if data:
+            resp = data.decode().strip()
 
             try:
                 resp = recursive_parse_orjson(resp)
             except Exception as parse_error:
                 print(f"Failed to parse response: {parse_error}")
 
-        except asyncio.TimeoutError:
-            resp = "Operation timed out"  # Handle timeout errors
-
     except ConnectionRefusedError:
-        resp = "Connection refused"  # Handle connection errors
+        resp = "Connection refused"
     except Exception as e:
-        resp = f"An unexpected error occurred: {e}"  # Handle general exceptions
+        resp = f"An unexpected error occurred: {e}"
     finally:
-        # Ensure the writer is closed after the operation
         if writer:
             writer.close()
             await writer.wait_closed()

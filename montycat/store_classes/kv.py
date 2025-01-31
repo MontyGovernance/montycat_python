@@ -378,12 +378,6 @@ class generic_kv:
             cls.schema = str(schema)
         else: 
             cls.schema = None
-            # del search_criteria["schema"]
-        # else:
-        #     cls.schema = None
-
-        # if schema:
-        #     cls.schema = schema
 
         cls.command = "lookup_values"
         cls.limit_output = lim
@@ -422,6 +416,12 @@ class generic_kv:
         cls.command = "list_all_depending_keys"
 
         query = convert_to_binary_query(cls, key=key)
+        return cls._run_query(query)
+    
+    @classmethod
+    def get_len(cls):
+        cls.command = "get_len"
+        query = convert_to_binary_query(cls)
         return cls._run_query(query)
     
     @classmethod
