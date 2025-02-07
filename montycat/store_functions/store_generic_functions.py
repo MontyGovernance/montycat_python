@@ -53,7 +53,7 @@ def convert_custom_keys(keys: list) -> list:
 
 def handle_pointers_for_update(value: dict) -> dict:
     for k, v in value.items():
-        print(v)
+        # print(v)
         if isinstance(v, Pointer):
             value[k] = v.serialize()
     return value
@@ -153,13 +153,10 @@ def convert_to_binary_query(
     bulk_keys = bulk_keys or []
     bulk_keys_values = bulk_keys_values or {}
     
-    # Process single value
     if value:
         value = modify_pointers(value)
     
-    # Process bulk values and handle schema validation
     if bulk_values:
-        # Extract schemas in single pass
         schemas = []
         for item in bulk_values:
             if 'schema' in item:
@@ -167,19 +164,16 @@ def convert_to_binary_query(
             else:
                 schemas.extend([None])
         
-        # Validate schemas
         unique_schemas = set(schemas)
         if len(unique_schemas) > 1:
             raise ValueError("Bulk values should fit only one schema")
         
-        # Set schema and clean bulk values
         cls.schema = schemas[0] if schemas else None
         bulk_values = [
             str(modify_pointers({k: v for k, v in item.items() if k != 'schema'}))
             for item in bulk_values
         ]
     
-    # Process bulk key-values if present
     if bulk_keys_values:
         bulk_keys_values = {
             k: str(modify_pointers(v)) 
@@ -189,11 +183,9 @@ def convert_to_binary_query(
     if bulk_keys:
         bulk_keys = [str(k) for k in bulk_keys]
     
-    # Handle schema from single value after bulk processing
     if 'schema' in value:
         cls.schema = value.pop('schema')
     
-    # Construct query dictionary with normalized values
     query_dict = {
         "schema": cls.schema,
         "request": cls.request,
@@ -241,33 +233,21 @@ def handle_limit(limit: Union[list, int]) -> dict:
     This function ensures the pagination limits are properly structured and returns
     them in a dictionary format suitable for query processing.
     """
-    # Initialize the Limit object with default values
     limit_instance = Limit()
-
     if isinstance(limit, list):
         if len(limit) == 2:
-            # Set both start and stop from the list
             limit_instance.start, limit_instance.stop = limit
         elif len(limit) == 0:
-            # No limits provided, set both to 0
             limit_instance.start, limit_instance.stop = 0, 0
         else:
-            # Invalid list length
             raise ValueError("Limit should be a list with exactly two values (start, stop).")
-    
     elif isinstance(limit, int):
         if limit >= 0:
-            # If the limit is a positive integer, set it as the stop value
             limit_instance.start, limit_instance.stop = 0, limit
         else:
-            # Invalid integer value
             raise ValueError("Limit should be an integer greater than 0.")
-    
     else:
-        # Invalid type
         raise ValueError("Limit should be either a list (with two values) or a positive integer.")
-
-    # Return the pagination limit as a dictionary
     return limit_instance.return_limit()
 
 def show_store_properties_(cls: type) -> None:

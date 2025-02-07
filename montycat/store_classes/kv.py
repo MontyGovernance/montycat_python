@@ -29,11 +29,11 @@ class generic_kv:
         Returns:
             True if the insert operation was successful. Class 'str' if the insert operation failed.
         """
-        custom_key_converted = convert_custom_key(custom_key)
-        cls.command = "insert_custom_key"
-
         if not custom_key:
             raise ValueError("No custom key provided for insertion.")
+        
+        custom_key_converted = convert_custom_key(custom_key)
+        cls.command = "insert_custom_key"
 
         query = convert_to_binary_query(cls, key=custom_key_converted, expire_sec=expire_sec)
         return await cls._run_query(query)
@@ -49,13 +49,13 @@ class generic_kv:
             True if the insert operation was successful. Class 'str' if the insert operation failed.
             
         """
-        custom_key_converted = convert_custom_key(custom_key)
-        cls.command = "insert_custom_key_value"
-
         if not value:
             raise ValueError("No value provided for insertion.")
         if not custom_key:
             raise ValueError("No custom key provided for insertion.")
+
+        custom_key_converted = convert_custom_key(custom_key)
+        cls.command = "insert_custom_key_value"
 
         query = convert_to_binary_query(cls, key=custom_key_converted, value=value, expire_sec=expire_sec)
         return await cls._run_query(query)
@@ -69,10 +69,10 @@ class generic_kv:
         Returns:
             Key number if the insert operation was successful. Class 'str' if the insert operation failed.
         """
-        cls.command = "insert_value"
-
         if not value:
             raise ValueError("No value provided for insertion.")
+        
+        cls.command = "insert_value"
 
         query = convert_to_binary_query(cls, value=value, expire_sec=expire_sec)
         return await cls._run_query(query)
@@ -90,16 +90,19 @@ class generic_kv:
         """
         if len(custom_key) > 0:
             key = convert_custom_key(custom_key)
-        cls.command = "get_value"
+
+        #validate custon key - should be a string!
 
         if not key:
             raise ValueError("No key provided for retrieval.")
+        
+        cls.command = "get_value"
 
         query = convert_to_binary_query(cls, key=key, with_pointers=with_pointers)
         return await cls._run_query(query)
         
     @classmethod
-    async def get_keys(cls, limit: list = []):
+    async def get_keys(cls, limit: Union[list, int] = []):
         """
         Args:
             Limit: A list of two integers that determine the range of keys to retrieve.
@@ -107,10 +110,9 @@ class generic_kv:
         Returns:
             A list of keys in the store. Class 'str' if the get operation failed.
         """
-        lim = handle_limit(limit)
-
+        cls.limit_output = handle_limit(limit)
         cls.command = "get_keys"
-        cls.limit_output = lim
+
         query = convert_to_binary_query(cls)
         return await cls._run_query(query)
     
@@ -130,14 +132,14 @@ class generic_kv:
             bool | str: Returns a boolean indicating success (True) or failure (False),
                         or a string message if the deletion was unsuccessful.
         """
-        # If a custom key is provided, convert it to the appropriate format
         if len(custom_key) > 0:
             key = convert_custom_key(custom_key)
+        #custom key should be string
 
-        cls.command = "delete_key"  # Set the command type for the query
-
-        if not key:  # Ensure a key is provided for the deletion operation
+        if not key:
             raise ValueError("No key provided for deletion.")
+        
+        cls.command = "delete_key"  # Set the command type for the query
 
         query = convert_to_binary_query(cls, key=key)  # Convert the key into a binary query format
         return await cls._run_query(query)  # Run the query and return the result
@@ -160,19 +162,19 @@ class generic_kv:
             bool | str: Returns a boolean indicating success (True) or failure (False),
                         or a string message if the update was unsuccessful.
         """
-        # If a custom key is provided, convert it to the appropriate format
+
         if len(custom_key) > 0:
             key = convert_custom_key(custom_key)
 
-        cls.command = "update_value"  # Set the command type for the query
-
-        if not filters:  # Ensure at least one filter is provided for the update operation
+        if not filters:
             raise ValueError("No filters provided for update.")
-        if not key:  # Ensure a key is provided for the update operation
+        if not key:
             raise ValueError("No key provided for update.")
         
+        # combine together two methods
         value = handle_timestamps(filters)  # Normalize the value to update
         value = handle_pointers_for_update(value)  # Normalize the pointers in the value
+        cls.command = "update_value"
 
         query = convert_to_binary_query(cls, key=key, value=value, expire_sec=expire_sec)  # Convert the key and filters into a binary query format
         return await cls._run_query(query)  # Run the query and return the result
@@ -188,11 +190,11 @@ class generic_kv:
             True if the bulk insert operation was successful.
             List of values that were not inserted.
         """
-        cls.command = "insert_bulk"
 
         if not bulk_values:
             raise ValueError("No values provided for bulk insertion.")
-
+        
+        cls.command = "insert_bulk"
         query = convert_to_binary_query(cls, bulk_values=bulk_values, expire_sec=expire_sec)
         return cls._run_query(query)
     
@@ -251,8 +253,6 @@ class generic_kv:
         Raises:
             ValueError: If both `bulk_keys` and `bulk_custom_keys` are empty.
         """
-        lim = handle_limit(limit)
-
         if len(bulk_custom_keys) > 0:
             bulk_custom_keys = convert_custom_keys(bulk_custom_keys)  # Convert custom keys if provided
             bulk_keys += bulk_custom_keys
@@ -261,7 +261,7 @@ class generic_kv:
             raise ValueError("No keys provided for retrieval.")
         
         cls.command = "get_bulk"
-        cls.limit_output = lim
+        cls.limit_output = handle_limit(limit)
         query = convert_to_binary_query(cls, bulk_keys=bulk_keys, with_pointers=with_pointers)
         return await cls._run_query(query)
     
@@ -289,10 +289,11 @@ class generic_kv:
             bulk_custom_keys_values = convert_custom_keys_values(bulk_custom_keys_values)  # Convert custom keys and values
             bulk_keys_values = {**bulk_keys_values, **bulk_custom_keys_values}  # Merge the dictionaries
 
+        #handle timestamps and pointers in bulk_keys_values together COMBINE!
         for k, v in bulk_keys_values.items():
-            bulk_custom_keys_values[k] = handle_timestamps(v)  # Normalize the values to update
+            bulk_custom_keys_values[k] = handle_timestamps(v)
         
-        if not bulk_keys_values:  # Ensure at least one key-value pair exists for the operation
+        if not bulk_keys_values:
             raise ValueError("No key-value pairs provided for update.")
         
         cls.command = "update_bulk"  # Set the command for bulk update
@@ -314,8 +315,6 @@ class generic_kv:
         Raises:
             ValueError: If no filters are provided.
         """
-        lim = handle_limit(limit)# Normalize the limit argument
-
         if not filters:  # Ensure filters are provided for the lookup
             raise ValueError("No criteria provided for the lookup.")
         
@@ -327,7 +326,7 @@ class generic_kv:
             cls.schema = None
         
         cls.command = "lookup_keys"
-        cls.limit_output = lim
+        cls.limit_output = handle_limit(limit)
         query = convert_to_binary_query(cls, search_criteria=search_criteria)
         return await cls._run_query(query)
     
@@ -347,8 +346,6 @@ class generic_kv:
         Raises:
             ValueError: If no filters are provided.
         """
-        lim = handle_limit(limit) # Normalize the limit argument
-
         if not filters: # Ensure filters are provided for the lookup
             raise ValueError("No criteria provided for the lookup.")
         
@@ -360,7 +357,7 @@ class generic_kv:
             cls.schema = None
 
         cls.command = "lookup_values"
-        cls.limit_output = lim
+        cls.limit_output = handle_limit(limit)
         query = convert_to_binary_query(cls, search_criteria=search_criteria, with_pointers=with_pointers)
         return await cls._run_query(query)
 
