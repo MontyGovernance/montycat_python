@@ -357,7 +357,8 @@ class generic_kv:
             cls.schema = None
 
         cls.command = "lookup_values"
-        cls.limit_output = handle_limit(limit)
+        # if class Limit then do not handle limit JUST use prebuild function -> return_limit()
+        cls.limit_output = handle_limit(limit) 
         query = convert_to_binary_query(cls, search_criteria=search_criteria, with_pointers=with_pointers)
         return await cls._run_query(query)
 
