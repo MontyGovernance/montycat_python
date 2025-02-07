@@ -1,13 +1,11 @@
 import asyncio
 import orjson
-from typing import Union
+from typing import Union, List, Optional, Any
+from tools import Permission
 
 class Engine:
     """
     Represents the configuration and connection details for a communication engine.
-
-    The `Engine` class stores information related to the connection such as the host, port, 
-    username, password, and store name required to establish a connection with the service.
 
     Attributes:
         host (str): The hostname or IP address of the server to connect to.
@@ -16,16 +14,18 @@ class Engine:
         password (str): The password for authentication with the server.
         store (str): The name of the data store on the server.
     """
-    def __init__(self, host: str, port: int, username: str, password: str, store: str):
+    VALID_PERMISSIONS = {'read', 'write', 'all'}
+
+    def __init__(self, host: str, port: int, username: str, password: str, store: str) -> None:
         """
-        Initializes the Engine with the necessary connection parameters.
+        Initializes the Engine with the given connection parameters.
 
         Args:
-            host (str): The hostname or IP address of the server.
-            port (int): The port number on the server to connect to.
-            username (str): The username for authentication.
-            password (str): The password for authentication.
-            store (str): The name of the data store to interact with.
+            host (str): Hostname or IP address of the server.
+            port (int): Port number to connect to.
+            username (str): Username for server authentication.
+            password (str): Password for server authentication.
+            store (str): Name of the data store to interact with.
         """
         self.host = host
         self.port = port
@@ -33,265 +33,205 @@ class Engine:
         self.password = password
         self.store = store
 
-    
-    def remove_store(self, persistent: bool = False):
+    async def _execute_query(self, command: List[Any]) -> Any:
         """
-        Removes the current store from the engine configuration.
+        Executes a command query asynchronously.
 
-        This method clears the store attribute from the engine, effectively 
-        disconnecting the engine from any specific data store.
+        Args:
+            command (List[Any]): The command to be executed on the server.
+
+        Returns:
+            Any: The server's response after executing the command.
         """
-        query = {
-            "raw": ['remove_store', "store", self.store, "persistent", "y" if persistent else "n"],
+        query = orjson.dumps({
+            "raw": command,
             "superowner_credentials": [self.username, self.password]
-        }
+        })
+        return await send_data(self.host, self.port, query)
 
-        return asyncio.run(send_data(self.host, self.port, orjson.dumps(query)))
-    
-    def create_store(self, persistent: bool = False):
+    async def create_store(self, persistent: bool = False) -> Any:
         """
-        Creates a new store on the server.
+        Creates a new data store on the server.
 
-        This method sends a request to the server to create a new store with the 
-        specified name and persistence settings. The store is created with the 
-        provided credentials and returns a success message or an error response.
+        Args:
+            persistent (bool): Flag indicating if the store should be persistent.
+
+        Returns:
+            bool
         """
-        
-        query = {
-            "raw": ['create_store', "store", self.store, "persistent", "y" if persistent else "n"],
-            "superowner_credentials": [self.username, self.password]
-        }
+        return await self._execute_query([
+            'create_store', "store", self.store, "persistent", "y" if persistent else "n"
+        ])
 
-        return asyncio.run(send_data(self.host, self.port, orjson.dumps(query)))
-    
-    def grant_to(self, owner: str, permission: str, namespaces: Union[list, str, None] = None):
+    async def remove_store(self, persistent: bool = False) -> Any:
         """
-        Grants a permission to a user on the current store.
+        Removes an existing data store from the server.
 
-        This method sends a request to the server to grant a specific permission 
-        to a user on the current store. The permission can be 'read', 'write', or 'admin'.
+        Args:
+            persistent (bool): Flag indicating if the removal should be persistent.
+
+        Returns:
+            bool
         """
+        return await self._execute_query([
+            'remove_store', "store", self.store, "persistent", "y" if persistent else "n"
+        ])
 
-        valid_permissions = ['read', 'write', 'all']
+    async def grant_to(self, owner: str, permission: Union[str, Permission], namespaces: Optional[Union[List[str], str]] = None) -> Any:
+        """
+        Grants specific permissions to a user for the current store.
 
-        if str(permission) not in valid_permissions:
-            raise ValueError(f"Invalid permission: {permission}. Valid permissions are: {valid_permissions}")
+        Args:
+            owner (str): The user to grant permissions to.
+            permission (str): The type of permission ('read', 'write', 'all').
+            namespaces (Optional[Union[List[str], str]]): Optional namespaces for permission scoping.
 
-        query = {
-            "raw": ['grant_to', "owner", owner, "permission", str(permission), "store", self.store],
-            "superowner_credentials": [self.username, self.password]
-        }
+        Returns:
+            bool
 
+        Raises:
+            ValueError: If an invalid permission is provided.
+        """
+        if permission not in self.VALID_PERMISSIONS:
+            raise ValueError(f"Invalid permission: {permission}. Valid permissions are: {self.VALID_PERMISSIONS}")
+
+        command = ['grant_to', "owner", owner, "permission", permission, "store", self.store]
         if namespaces:
-
-            query["raw"].extend(["namespaces"])
-
+            command.append("namespaces")
             if isinstance(namespaces, str):
-                query["raw"].extend([namespaces])
-            elif isinstance(namespaces, list):
+                command.append(namespaces)
+            else:
+                command.extend(namespaces)
 
-                for each in namespaces:
-                    if isinstance(each, type):
-                        query["raw"].extend([each.namespace])
-                    else:
-                        query["raw"].extend([each])
+        return await self._execute_query(command)
 
-            elif isinstance(namespaces, type):
-                query["raw"].extend([namespaces.namespace])
-
-        return asyncio.run(send_data(self.host, self.port, orjson.dumps(query)))
-    
-    def revoke_from(self, owner: str, permission: str, namespaces: Union[list, str, type, None] = None):
+    async def revoke_from(self, owner: str, permission: Union[str, Permission], namespaces: Optional[Union[List[str], str]] = None) -> Any:
         """
-        Revokes a permission from a user on the current store.
+        Revokes specific permissions from a user for the current store.
 
-        This method sends a request to the server to revoke a specific permission 
-        from a user on the current store. The permission can be 'read', 'write', or 'all'.
+        Args:
+            owner (str): The user to revoke permissions from.
+            permission (str): The type of permission ('read', 'write', 'all').
+            namespaces (Optional[Union[List[str], str]]): Optional namespaces for permission scoping.
+
+        Returns:
+            bool
+
+        Raises:
+            ValueError: If an invalid permission is provided.
         """
+        if permission not in self.VALID_PERMISSIONS:
+            raise ValueError(f"Invalid permission: {permission}. Valid permissions are: {self.VALID_PERMISSIONS}")
 
-        valid_permissions = ['read', 'write', 'all']
-
-        if str(permission) not in valid_permissions:
-            raise ValueError(f"Invalid permission: {permission}. Valid permissions are: {valid_permissions}")
-
-        query = {
-            "raw": ['revoke_from', "owner", owner, "permission", str(permission), "store", self.store],
-            "superowner_credentials": [self.username, self.password]
-        }
-
+        command = ['revoke_from', "owner", owner, "permission", permission, "store", self.store]
         if namespaces:
-
-            query["raw"].extend(["namespaces"])
-
+            command.append("namespaces")
             if isinstance(namespaces, str):
-                query["raw"].extend([namespaces])
-            elif isinstance(namespaces, list):
+                command.append(namespaces)
+            else:
+                command.extend(namespaces)
 
-                for each in namespaces:
-                    if isinstance(each, type):
-                        query["raw"].extend([each.namespace])
-                    else:
-                        query["raw"].extend([each])
+        return await self._execute_query(command)
 
-            elif isinstance(namespaces, type):
-                query["raw"].extend([namespaces.namespace])
-
-        return asyncio.run(send_data(self.host, self.port, orjson.dumps(query)))
-    
-    def create_owner(self, owner: str, password: str):
+    async def create_owner(self, owner: str, password: str) -> Any:
         """
-        Creates a new owner with the specified credentials.
+        Creates a new owner on the server with specified credentials.
 
-        This method sends a request to the server to create a new owner with the 
-        specified username and password. The owner is created with the provided 
-        credentials and returns a success message or an error response.
+        Args:
+            owner (str): The username for the new owner.
+            password (str): The password for the new owner.
+
+        Returns:
+            bool.
         """
+        return await self._execute_query([
+            'create_owner', "username", owner, "password", password
+        ])
 
-        query = {
-            "raw": ['create_owner', "username", owner, "password", password],
-            "superowner_credentials": [self.username, self.password]
-        }
-
-        return asyncio.run(send_data(self.host, self.port, orjson.dumps(query)))
-    
-    def remove_owner(self, owner: str):
+    async def remove_owner(self, owner: str) -> Any:
         """
         Removes an owner from the server.
 
-        This method sends a request to the server to remove an existing owner 
-        with the specified username. The owner is removed from the server and 
-        returns a success message or an error response.
+        Args:
+            owner (str): The username of the owner to be removed.
+
+        Returns:
+            bool
         """
+        return await self._execute_query([
+            'remove_owner', "username", owner
+        ])
 
-        query = {
-            "raw": ['remove_owner', "username", owner],
-            "superowner_credentials": [self.username, self.password]
-        }
-
-        return asyncio.run(send_data(self.host, self.port, orjson.dumps(query)))
-    
-    def list_owners(self):
+    async def list_owners(self) -> Any:
         """
-        Lists all owners on the server.
+        Lists all owners registered on the server.
 
-        This method sends a request to the server to retrieve a list of all owners 
-        registered on the server. The list of owners is returned as a response.
+        Returns:
+            Any: The server's response containing the list of owners.
         """
+        return await self._execute_query(['list_owners'])
 
-        query = {
-            "raw": ['list_owners'],
-            "superowner_credentials": [self.username, self.password]
-        }
 
-        return asyncio.run(send_data(self.host, self.port, orjson.dumps(query)))
-
-async def send_data(host: str, port: int, string: str):
+async def send_data(host: str, port: int, query: bytes) -> Any:
     """
-    Asynchronously sends data to a remote server and receives a response in 1MB chunks.
-
-    This function connects to the specified server using the given host and port, 
-    sends the provided string, and waits for a response. It reads data in fixed 
-    1MB chunks until a newline (`\n`) is encountered.
+    Sends data asynchronously to a remote server and handles the response.
 
     Args:
-        host (str): The hostname or IP address of the server.
-        port (int): The port number of the server.
-        string (str): The data to be sent to the server.
+        host (str): The server's hostname or IP address.
+        port (int): The server's port.
+        query (bytes): The serialized data to be sent.
 
     Returns:
-        str: The server's response, either the parsed response data 
-             or an error message if the operation fails.
-             
+        Any: The server's parsed response. Suppose to be dict {}.
+
     Raises:
-        asyncio.TimeoutError: If the response times out while waiting.
-        ConnectionRefusedError: If the connection to the server is refused.
-        Exception: If an unexpected error occurs during the connection or data processing.
+        asyncio.TimeoutError: If the operation exceeds the time limit.
+        ConnectionRefusedError: If the server refuses the connection.
     """
     CHUNK_SIZE = 1024 * 1024  # 1MB
-    resp = None
-    writer = None
 
     try:
         reader, writer = await asyncio.open_connection(host, port)
-
-        writer.write(string + b"\n")
+        writer.write(query + b"\n")
         await writer.drain()
 
         data = bytearray()
-
         while True:
-            try:
-                chunk = await asyncio.wait_for(reader.read(CHUNK_SIZE), timeout=120)
-                if not chunk:  # Connection closed by the server
-                    break
-                
+            chunk = await asyncio.wait_for(reader.read(CHUNK_SIZE), timeout=120)
+            if not chunk or b"\n" in chunk:
                 data.extend(chunk)
-
-                if b"\n" in chunk:
-                    break  # Stop when newline is found
-
-            except asyncio.TimeoutError:
-                resp = "Operation timed out"
                 break
+            data.extend(chunk)
 
-        if data:
-            resp = data.decode().strip()
+        writer.close()
+        await writer.wait_closed()
 
-            try:
-                resp = recursive_parse_orjson(resp)
-            except Exception as parse_error:
-                print(f"Failed to parse response: {parse_error}")
+        response = data.decode().strip()
+        return recursive_parse_orjson(response)
 
-    except ConnectionRefusedError:
-        resp = "Connection refused"
+    except (asyncio.TimeoutError, ConnectionRefusedError) as e:
+        return str(e)
     except Exception as e:
-        resp = f"An unexpected error occurred: {e}"
-    finally:
-        if writer:
-            writer.close()
-            await writer.wait_closed()
+        return f"An unexpected error occurred: {e}"
 
-    return resp
 
-def recursive_parse_orjson(data):
+def recursive_parse_orjson(data: Any) -> Any:
     """
-    Recursively parses nested JSON strings in the provided data using orjson for faster parsing.
-    
+    Recursively parses nested JSON strings using orjson.
+
     Args:
-        data: A Python object that may contain JSON strings, including nested structures.
-        
+        data (Any): The data to be parsed, can be a JSON string, list, tuple, or dictionary.
+
     Returns:
-        A fully parsed Python object with all nested JSON strings converted.
+        Any: Fully parsed data structure.
     """
-    if isinstance(data, dict):
-        return {key: recursive_parse_orjson(value) for key, value in data.items()}
-    elif isinstance(data, tuple):
-        return tuple(recursive_parse_orjson(element) for element in data)
-    elif isinstance(data, list):
-        return [recursive_parse_orjson(element) for element in data]
-    elif isinstance(data, str):
+    if isinstance(data, str):
         try:
-            parsed_data = orjson.loads(data)
-            return recursive_parse_orjson(parsed_data)
+            return recursive_parse_orjson(orjson.loads(data))
         except orjson.JSONDecodeError:
             return data
-    elif isinstance(data, (int, float)):
-        return data
-    else:
-        return data
-
-class MetaclassPermission(type):
-    def __str__(cls):
-        return cls.permission
-    
-    def __repr__(cls):
-        return cls.permission
-
-class Permission:
-    class read(metaclass=MetaclassPermission):
-        permission = "read"
-    class write(metaclass=MetaclassPermission):
-        permission = "write"
-    class all(metaclass=MetaclassPermission):
-        permission = "all"
-    
+    elif isinstance(data, (list, tuple)):
+        return type(data)(recursive_parse_orjson(item) for item in data)
+    elif isinstance(data, dict):
+        return {key: recursive_parse_orjson(value) for key, value in data.items()}
+    return data

@@ -95,10 +95,8 @@ class Schema(metaclass=SchemaMetaclass):
     
     def check_extra_fields(self, hints):
         """Ensure no extra fields are present."""
-        # Get all defined fields based on type hints
         defined_fields = set(hints.keys())
 
-        # Check for extra fields in the instance
         for attribute in self.__dict__:
             if attribute not in defined_fields and not attribute.startswith('_'):
                 raise ValueError(f"Unexpected field '{attribute}' found in the instance.")
@@ -136,3 +134,53 @@ class Schema(metaclass=SchemaMetaclass):
                         f"Attribute '{attribute}' should be of type '{expected_type.__name__}', "
                         f"but got '{type(actual_value).__name__}'"
                     )
+                
+class Limit:
+    """
+    A class to represent pagination limits with start and stop indices.
+
+    This class is used to define the range of records to be retrieved or processed,
+    typically for pagination in queries. It allows you to specify a starting index 
+    and a stopping index, and it can return these as a dictionary.
+
+    Attributes:
+        start (int): The starting index for the range (default is 0).
+        stop (int): The stopping index for the range (default is 0).
+    """
+    def __init__(self, start: int = 0, stop: int = 0):
+        """
+        Initializes the Limit object with optional start and stop values.
+
+        Args:
+            start (int): The starting index for the range (default is 0).
+            stop (int): The stopping index for the range (default is 0).
+        """
+        self.start = start
+        self.stop = stop
+
+    def return_limit(self):
+        """
+        Returns the pagination limit as a dictionary with 'start' and 'stop' keys.
+
+        This method is useful for returning the limit values in a structured format 
+        that can be used in query construction or other operations requiring pagination limits.
+
+        Returns:
+            dict: A dictionary containing the 'start' and 'stop' indices.
+        """
+        return {"start": self.start, "stop": self.stop}
+    
+class MetaclassPermission(type):
+    def __str__(cls):
+        return cls.permission
+    
+    def __repr__(cls):
+        return cls.permission
+
+class Permission:
+    class read(metaclass=MetaclassPermission):
+        permission = "read"
+    class write(metaclass=MetaclassPermission):
+        permission = "write"
+    class all(metaclass=MetaclassPermission):
+        permission = "all"

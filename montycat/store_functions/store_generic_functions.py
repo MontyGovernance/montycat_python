@@ -1,7 +1,5 @@
-from ..core.engine import Engine, send_data
-from ..core.limit import Limit
-from ..core.schema import Timestamp, Pointer
-import asyncio
+from ..core.engine import Engine
+from ..core.tools import Timestamp, Pointer, Limit
 import orjson
 import xxhash
 from typing import Type, Dict, List, Union, Any
@@ -57,7 +55,6 @@ def handle_pointers_for_update(value: dict) -> dict:
     for k, v in value.items():
         print(v)
         if isinstance(v, Pointer):
-            print("POINTER", type(v))
             value[k] = v.serialize()
     return value
 
@@ -166,9 +163,9 @@ def convert_to_binary_query(
         schemas = []
         for item in bulk_values:
             if 'schema' in item:
-                schemas.append(item['schema'])
+                schemas.extend([item['schema']])
             else:
-                schemas.append(None)
+                schemas.extend([None])
         
         # Validate schemas
         unique_schemas = set(schemas)
@@ -195,14 +192,6 @@ def convert_to_binary_query(
     # Handle schema from single value after bulk processing
     if 'schema' in value:
         cls.schema = value.pop('schema')
-    # else:
-    #     cls.schema = None
-    
-    # Efficient boolean normalization
-
-    
-    # if cls.schema is not None:
-    #     cls.schema = str(cls.schema)
     
     # Construct query dictionary with normalized values
     query_dict = {
@@ -228,35 +217,11 @@ def convert_to_binary_query(
     }
         
     return orjson.dumps(query_dict)
-        
-def run_raw_query(cls: type, query: str) -> None:
-
-    request = {
-        "raw": query,
-        "superowner_credentials": [cls.username, cls.password]
-    }
-
-    return asyncio.run(send_data(cls.host, cls.port, orjson.dumps(request)))
-
-def run_query(cls: type) -> None:
-    """
-    Executes the query built using the provided class and parameters.
-    
-    Args:
-        cls (type): The class containing connection details and settings for the query.
-    
-    This function generates a binary query based on the class settings and sends 
-    it using the `send_data` function asynchronously.
-    """
-    query = convert_to_binary_query(cls)
-    return asyncio.run(send_data(cls.host, cls.port, query))
 
 def handle_timestamps(search_criteria: dict) -> dict:
     for key, value in search_criteria.items():
         if isinstance(value, Timestamp.before) or isinstance(value, Timestamp.after) or isinstance(value, Timestamp.range) or isinstance(value, Timestamp):
             search_criteria[key] = value.serialize()
-        # if key == "schema":
-        #     search_criteria[key] = str(value) #by default schema is a class name
     return search_criteria
 
 def handle_limit(limit: Union[list, int]) -> dict:
@@ -304,59 +269,6 @@ def handle_limit(limit: Union[list, int]) -> dict:
 
     # Return the pagination limit as a dictionary
     return limit_instance.return_limit()
-
-def create_namespace_raw(cls: type) -> None:
-    """
-    Creates a new namespace using the provided class settings.
-
-    Args:
-        cls (type): The class containing the configuration details for the namespace creation.
-    
-    This function sets the class to perform a "create_namespace" command and sends
-    a raw query to execute it.
-    """
-
-    query = ["create_namespace", "store", cls.store, "namespace", cls.namespace, "persistent", "y" if cls.persistent else "n"]
-    return run_raw_query(cls, query)
-
-def remove_namespace_raw(cls: type) -> None:
-    """
-    Drops the namespace associated with the provided class settings.
-    
-    Args:
-        cls (type): The class containing the configuration details for the namespace drop.
-    
-    This function sets the class to perform a "drop_namespace" command and sends 
-    a query to execute it.
-    """
-    query = ["remove_namespace", "store", cls.store, "namespace", cls.namespace, "persistent", "y" if cls.persistent else "n"]
-    return run_raw_query(cls, query)
-
-# def remove_store_raw(cls: type) -> None:
-#     """
-#     Drops the store associated with the provided class settings.
-    
-#     Args:
-#         cls (type): The class containing the configuration details for the store drop.
-    
-#     This function sets the class to perform a "drop_store" command and prints 
-#     a message that the store is being dropped.
-#     """
-#     query = ["remove_store", "store", cls.store]
-#     return run_raw_query(cls, query)
-
-# def create_store_raw(cls: type) -> None:
-#     """
-#     Creates a new store using the provided class settings.
-    
-#     Args:
-#         cls (type): The class containing the configuration details for the store creation.
-    
-#     This function sets the class to perform a "create_store" command and sends 
-#     a query to execute it.
-#     """
-#     query = ["create_store", "store", cls.store, "persistent", "y" if cls.persistent else "n", "distributed", "y" if cls.distributed else "n"]
-#     return run_raw_query(cls, query)
 
 def show_store_properties_(cls: type) -> None:
     """
