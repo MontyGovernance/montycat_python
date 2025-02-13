@@ -7,7 +7,7 @@ setup(
     description='A Python client for MontyCat, NoSQL store utilizing Data Mesh architecture.',
     packages=find_packages(),
     zip_safe=False,
-    long_description=open('README.md').read(),
+    long_description=open('README.md', encoding='utf-8').read(),
     long_description_content_type='text/markdown',
     author='MontyGovernance',
     author_email='eugene.and.monty@gmail.com',

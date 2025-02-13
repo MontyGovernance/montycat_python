@@ -179,6 +179,9 @@ class Schema(metaclass=SchemaMetaclass):
         self.validate_types()
         self.schema = self.__class__.__name__
 
+    def serialize(self):                    
+        return self.__dict__
+
     def check_missing_fields(self, hints):
         """
         Verify that all required fields defined in type hints are present.

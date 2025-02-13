@@ -1,7 +1,6 @@
-import asyncio
-import orjson
+import asyncio, orjson
 from typing import Union, List, Optional, Any
-from tools import Permission
+from .tools import Permission
 
 class Engine:
     """
@@ -214,24 +213,111 @@ async def send_data(host: str, port: int, query: bytes) -> Any:
     except Exception as e:
         return f"An unexpected error occurred: {e}"
 
+def recursive_parse_orjson(data):
+   """
+   Recursively parses nested JSON strings in the provided data using orjson for faster parsing.
+   Keeps u128 values as strings.
+   Args:
+       data: A Python object that may contain JSON strings, including nested structures.
+   Returns:
+       A fully parsed Python object with all nested JSON strings converted, except for u128 values.
+   """
+   if isinstance(data, dict):
+       return {key: recursive_parse_orjson(value) for key, value in data.items()}
+   elif isinstance(data, tuple):
+       return tuple(recursive_parse_orjson(element) for element in data)
+   elif isinstance(data, list):
+       return [recursive_parse_orjson(element) for element in data]
+   elif isinstance(data, str):
+       # Check if the string is a u128 value (you can define your own condition)
+       if is_u128(data):
+           return data  # Keep u128 as a string
+       try:
+           parsed_data = orjson.loads(data)
+           return recursive_parse_orjson(parsed_data)
+       except orjson.JSONDecodeError:
+           return data
+   elif isinstance(data, (int, float)):
+       return data
+   else:
+       return data
+   
+def is_u128(value):
+   """
+   Check if the given string is a u128 value.
+   Args:
+       value: A string to check.
+   Returns:
+       True if the string is a u128 value, False otherwise.
+   """
+   # Example condition: u128 values are 128-bit unsigned integers, so they are long numeric strings
+   # You can define your own condition based on your specific requirements
+   return value.isdigit() and len(value) > 16  # Example condition for u128
 
-def recursive_parse_orjson(data: Any) -> Any:
-    """
-    Recursively parses nested JSON strings using orjson.
+# def preprocess_large_ints(json_str: str) -> str:
+#     """Wraps large integers in quotes to preserve them as strings in the final parse."""
+#     # Match integers larger than u64 (i.e., more than 19 digits)
+#     LARGE_INT_PATTERN = re.compile(r'(?<![\d"])(\d{15,})(?![\d"])')
+#     return LARGE_INT_PATTERN.sub(r'"\1"', json_str)
 
-    Args:
-        data (Any): The data to be parsed, can be a JSON string, list, tuple, or dictionary.
+# def recursive_parse_orjson(data: Any) -> Any:
+#     """
+#     Recursively parses nested JSON strings using orjson.
 
-    Returns:
-        Any: Fully parsed data structure.
-    """
-    if isinstance(data, str):
-        try:
-            return recursive_parse_orjson(orjson.loads(data))
-        except orjson.JSONDecodeError:
-            return data
-    elif isinstance(data, (list, tuple)):
-        return type(data)(recursive_parse_orjson(item) for item in data)
-    elif isinstance(data, dict):
-        return {key: recursive_parse_orjson(value) for key, value in data.items()}
-    return data
+#     Args:
+#         data (Any): The data to be parsed, can be a JSON string, list, tuple, or dictionary.
+
+#     Returns:
+#         Any: Fully parsed data structure.
+#     """
+#     if isinstance(data, str):
+#         try:
+#             return recursive_parse_orjson(orjson.loads(data))
+#         except orjson.JSONDecodeError:
+#             return data
+#     elif isinstance(data, (list, tuple)):
+#         return type(data)(recursive_parse_orjson(item) for item in data)
+#     elif isinstance(data, dict):
+#         return {key: recursive_parse_orjson(value) for key, value in data.items()}
+#     return data
+
+# class CustomJSONDecoder(json.JSONDecoder):
+#     def decode(self, s: str, **kwargs):
+#         # Preprocess large integers
+#         processed_s = self._preprocess_large_ints(s)
+#         return super().decode(processed_s, **kwargs)
+
+#     def _preprocess_large_ints(self, json_str: str) -> str:
+#         """
+#         Replace large integers in JSON string with string representations to avoid precision loss.
+#         Matches numbers with more than 19 digits (i.e., larger than u64 max).
+#         """
+#         return re.sub(r'(?<![\d"])(\d{20,})(?![\d"])', r'"\1"', json_str)
+
+# def recursive_parse_json(data: Any) -> Any:
+#     """
+#     Recursively parses nested JSON data using a custom decoder to handle large integers as strings.
+
+#     Args:
+#         data (Any): JSON string, list, dict, etc.
+    
+#     Returns:
+#         Any: Parsed data with large integers as strings.
+#     """
+#     U64_MAX = 2**64 - 1
+
+#     if isinstance(data, str):
+#         try:
+#             return json.loads(data, cls=CustomJSONDecoder)
+#         except json.JSONDecodeError:
+#             return data
+
+#     elif isinstance(data, list):
+#         return [recursive_parse_json(item) for item in data]
+    
+#     elif isinstance(data, dict):
+#         return {key: recursive_parse_json(value) for key, value in data.items()}
+    
+#     elif isinstance(data, int) and data > U64_MAX:
+#         return str(data)
+#     return data

@@ -1,8 +1,6 @@
 from ..core.engine import Engine, send_data
 from ..store_functions.store_generic_functions import \
-    handle_pointers_for_update, handle_limit, handle_timestamps, \
-    connect_engine_inner, \
-    show_store_properties_, convert_to_binary_query, convert_custom_key, \
+    handle_pointers_for_update, handle_limit, handle_timestamps, convert_to_binary_query, convert_custom_key, \
     convert_custom_keys, convert_custom_keys_values
 from typing import Union
 import orjson
@@ -411,8 +409,22 @@ class generic_kv:
     #     return await cls._run_query(query)
     
     @classmethod
-    async def connect_engine(cls, engine: Engine) -> None:
-        connect_engine_inner(cls, engine)
+    def connect_engine(cls, engine: Engine) -> None:
+        """
+        Establishes a connection to the specified engine, setting the necessary connection details.
+        
+        Args:
+            cls (type): The class that will hold the connection information.
+            engine (Engine): An instance of the Engine class containing connection details.
+        
+        This function updates the class with connection attributes such as username, 
+        password, host, port, and store name.
+        """
+        cls.username = engine.username
+        cls.password = engine.password
+        cls.host = engine.host
+        cls.port = engine.port
+        cls.store = engine.store
 
     @classmethod  
     async def create_namespace(cls):
@@ -442,5 +454,23 @@ class generic_kv:
 
     @classmethod
     def show_store_properties(cls):
-        show_store_properties_(cls)
+        """
+        Displays the properties of the store associated with the provided class settings.
+        
+        Args:
+            cls (type): The class containing the configuration details for the store.
+        
+        This function sets the class to perform a "show_properties" command and sends 
+        a query to retrieve the store's properties.
+        """
+        return print(
+            f"Store Name: {cls.store}\n"
+            f"Store Namespace: {cls.store}\n"
+            f"Persistent: {cls.persistent}\n"
+            f"Distributed: {cls.distributed}\n"
+            f"Host: {cls.host}\n"
+            f"Port: {cls.port}\n"
+            f"Username: {cls.username}\n"
+            f"Password: {cls.password}\n"
+        )
 

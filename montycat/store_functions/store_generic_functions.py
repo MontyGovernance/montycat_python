@@ -4,22 +4,22 @@ import orjson
 import xxhash
 from typing import Type, Dict, List, Union, Any
 
-def connect_engine_inner(cls: type, engine: Engine) -> None:
-    """
-    Establishes a connection to the specified engine, setting the necessary connection details.
+# def connect_engine_inner(cls: type, engine: Engine) -> None:
+#     """
+#     Establishes a connection to the specified engine, setting the necessary connection details.
     
-    Args:
-        cls (type): The class that will hold the connection information.
-        engine (Engine): An instance of the Engine class containing connection details.
+#     Args:
+#         cls (type): The class that will hold the connection information.
+#         engine (Engine): An instance of the Engine class containing connection details.
     
-    This function updates the class with connection attributes such as username, 
-    password, host, port, and store name.
-    """
-    cls.username = engine.username
-    cls.password = engine.password
-    cls.host = engine.host
-    cls.port = engine.port
-    cls.store = engine.store
+#     This function updates the class with connection attributes such as username, 
+#     password, host, port, and store name.
+#     """
+#     cls.username = engine.username
+#     cls.password = engine.password
+#     cls.host = engine.host
+#     cls.port = engine.port
+#     cls.store = engine.store
 
 def convert_custom_key(key: Union[int, str]) -> int:
     """
@@ -249,24 +249,3 @@ def handle_limit(limit: Union[list, int]) -> dict:
     else:
         raise ValueError("Limit should be either a list (with two values) or a positive integer.")
     return limit_instance.return_limit()
-
-def show_store_properties_(cls: type) -> None:
-    """
-    Displays the properties of the store associated with the provided class settings.
-    
-    Args:
-        cls (type): The class containing the configuration details for the store.
-    
-    This function sets the class to perform a "show_properties" command and sends 
-    a query to retrieve the store's properties.
-    """
-    return print(
-        f"Store Name: {cls.store}\n"
-        f"Store Namespace: {cls.storespace}\n"
-        f"Persistent: {cls.persistent}\n"
-        f"Distributed: {cls.distributed}\n"
-        f"Host: {cls.host}\n"
-        f"Port: {cls.port}\n"
-        f"Username: {cls.username}\n"
-        f"Password: {cls.password}\n"
-    )
