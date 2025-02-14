@@ -194,7 +194,7 @@ class generic_kv:
         
         cls.command = "insert_bulk"
         query = convert_to_binary_query(cls, bulk_values=bulk_values, expire_sec=expire_sec)
-        return cls._run_query(query)
+        return await cls._run_query(query)
     
     @classmethod
     async def delete_bulk(cls, bulk_keys: list = [], bulk_custom_keys: list = []):
