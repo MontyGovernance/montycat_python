@@ -29,8 +29,8 @@ jobs:
 
       - name: Run deployment script (dry run)
         run: |
-          chmod +x ./build_and_deploy.sh
-          ./build_and_deploy.sh
+          chmod +x ./build_and_push.sh
+          ./build_and_push.sh
         env:
           PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
           CI_DEPLOY: false  # Dry run, no upload
@@ -55,8 +55,8 @@ jobs:
 
       - name: Run deployment script (deploy)
         run: |
-          chmod +x ./build_and_deploy.sh
-          ./build_and_deploy.sh
+          chmod +x ./build_and_push.sh
+          ./build_and_push.sh
         env:
           PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
           CI_DEPLOY: true
