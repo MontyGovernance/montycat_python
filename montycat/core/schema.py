@@ -64,7 +64,7 @@ class Schema(metaclass=SchemaMetaclass):
         Raises:
             ValueError: If any required field is missing
         """
-        for attribute, expected_type in hints.items():
+        for attribute, _ in hints.items(): #expected_type
             if getattr(self, attribute) is None:
                 raise ValueError(f"Missing required field: '{attribute}'")
     

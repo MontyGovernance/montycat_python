@@ -2,10 +2,10 @@
 
 # Configuration
 PACKAGE_NAME="montycat"
-VERSION="0.1.31"
+VERSION="0.1.32"
 # Define multiple source directories and their files
 declare -A SOURCE_DIRS
-SOURCE_DIRS["montycat/core"]="engine.py schema.py"      # Space-separated list of files
+SOURCE_DIRS["montycat/core"]="utils.py"      # Space-separated list of files
 SOURCE_DIRS["montycat/store_functions"]="store_generic_functions.py"           # Add more directories as needed
 PYPI_TOKEN="${PYPI_TOKEN:-}"
 
