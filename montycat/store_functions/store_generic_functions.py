@@ -1,27 +1,25 @@
-from ..core.engine import Engine, send_data
-from ..core.limit import Limit
-from ..core.schema import Timestamp, Pointer
-import asyncio
+from ..core.engine import Engine
+from ..core.tools import Timestamp, Pointer, Limit
 import orjson
 import xxhash
 from typing import Type, Dict, List, Union, Any
 
-def connect_engine_inner(cls: type, engine: Engine) -> None:
-    """
-    Establishes a connection to the specified engine, setting the necessary connection details.
+# def connect_engine_inner(cls: type, engine: Engine) -> None:
+#     """
+#     Establishes a connection to the specified engine, setting the necessary connection details.
     
-    Args:
-        cls (type): The class that will hold the connection information.
-        engine (Engine): An instance of the Engine class containing connection details.
+#     Args:
+#         cls (type): The class that will hold the connection information.
+#         engine (Engine): An instance of the Engine class containing connection details.
     
-    This function updates the class with connection attributes such as username, 
-    password, host, port, and store name.
-    """
-    cls.username = engine.username
-    cls.password = engine.password
-    cls.host = engine.host
-    cls.port = engine.port
-    cls.store = engine.store
+#     This function updates the class with connection attributes such as username, 
+#     password, host, port, and store name.
+#     """
+#     cls.username = engine.username
+#     cls.password = engine.password
+#     cls.host = engine.host
+#     cls.port = engine.port
+#     cls.store = engine.store
 
 def convert_custom_key(key: Union[int, str]) -> int:
     """
@@ -55,9 +53,8 @@ def convert_custom_keys(keys: list) -> list:
 
 def handle_pointers_for_update(value: dict) -> dict:
     for k, v in value.items():
-        print(v)
+        # print(v)
         if isinstance(v, Pointer):
-            print("POINTER", type(v))
             value[k] = v.serialize()
     return value
 
@@ -156,33 +153,27 @@ def convert_to_binary_query(
     bulk_keys = bulk_keys or []
     bulk_keys_values = bulk_keys_values or {}
     
-    # Process single value
     if value:
         value = modify_pointers(value)
     
-    # Process bulk values and handle schema validation
     if bulk_values:
-        # Extract schemas in single pass
         schemas = []
         for item in bulk_values:
             if 'schema' in item:
-                schemas.append(item['schema'])
+                schemas.extend([item['schema']])
             else:
-                schemas.append(None)
+                schemas.extend([None])
         
-        # Validate schemas
         unique_schemas = set(schemas)
         if len(unique_schemas) > 1:
             raise ValueError("Bulk values should fit only one schema")
         
-        # Set schema and clean bulk values
         cls.schema = schemas[0] if schemas else None
         bulk_values = [
             str(modify_pointers({k: v for k, v in item.items() if k != 'schema'}))
             for item in bulk_values
         ]
     
-    # Process bulk key-values if present
     if bulk_keys_values:
         bulk_keys_values = {
             k: str(modify_pointers(v)) 
@@ -192,19 +183,9 @@ def convert_to_binary_query(
     if bulk_keys:
         bulk_keys = [str(k) for k in bulk_keys]
     
-    # Handle schema from single value after bulk processing
     if 'schema' in value:
         cls.schema = value.pop('schema')
-    # else:
-    #     cls.schema = None
     
-    # Efficient boolean normalization
-
-    
-    # if cls.schema is not None:
-    #     cls.schema = str(cls.schema)
-    
-    # Construct query dictionary with normalized values
     query_dict = {
         "schema": cls.schema,
         "request": cls.request,
@@ -228,35 +209,11 @@ def convert_to_binary_query(
     }
         
     return orjson.dumps(query_dict)
-        
-def run_raw_query(cls: type, query: str) -> None:
-
-    request = {
-        "raw": query,
-        "superowner_credentials": [cls.username, cls.password]
-    }
-
-    return asyncio.run(send_data(cls.host, cls.port, orjson.dumps(request)))
-
-def run_query(cls: type) -> None:
-    """
-    Executes the query built using the provided class and parameters.
-    
-    Args:
-        cls (type): The class containing connection details and settings for the query.
-    
-    This function generates a binary query based on the class settings and sends 
-    it using the `send_data` function asynchronously.
-    """
-    query = convert_to_binary_query(cls)
-    return asyncio.run(send_data(cls.host, cls.port, query))
 
 def handle_timestamps(search_criteria: dict) -> dict:
     for key, value in search_criteria.items():
         if isinstance(value, Timestamp.before) or isinstance(value, Timestamp.after) or isinstance(value, Timestamp.range) or isinstance(value, Timestamp):
             search_criteria[key] = value.serialize()
-        # if key == "schema":
-        #     search_criteria[key] = str(value) #by default schema is a class name
     return search_criteria
 
 def handle_limit(limit: Union[list, int]) -> dict:
@@ -276,105 +233,19 @@ def handle_limit(limit: Union[list, int]) -> dict:
     This function ensures the pagination limits are properly structured and returns
     them in a dictionary format suitable for query processing.
     """
-    # Initialize the Limit object with default values
     limit_instance = Limit()
-
     if isinstance(limit, list):
         if len(limit) == 2:
-            # Set both start and stop from the list
             limit_instance.start, limit_instance.stop = limit
         elif len(limit) == 0:
-            # No limits provided, set both to 0
             limit_instance.start, limit_instance.stop = 0, 0
         else:
-            # Invalid list length
             raise ValueError("Limit should be a list with exactly two values (start, stop).")
-    
     elif isinstance(limit, int):
         if limit >= 0:
-            # If the limit is a positive integer, set it as the stop value
             limit_instance.start, limit_instance.stop = 0, limit
         else:
-            # Invalid integer value
             raise ValueError("Limit should be an integer greater than 0.")
-    
     else:
-        # Invalid type
         raise ValueError("Limit should be either a list (with two values) or a positive integer.")
-
-    # Return the pagination limit as a dictionary
     return limit_instance.return_limit()
-
-def create_namespace_raw(cls: type) -> None:
-    """
-    Creates a new namespace using the provided class settings.
-
-    Args:
-        cls (type): The class containing the configuration details for the namespace creation.
-    
-    This function sets the class to perform a "create_namespace" command and sends
-    a raw query to execute it.
-    """
-
-    query = ["create_namespace", "store", cls.store, "namespace", cls.namespace, "persistent", "y" if cls.persistent else "n"]
-    return run_raw_query(cls, query)
-
-def remove_namespace_raw(cls: type) -> None:
-    """
-    Drops the namespace associated with the provided class settings.
-    
-    Args:
-        cls (type): The class containing the configuration details for the namespace drop.
-    
-    This function sets the class to perform a "drop_namespace" command and sends 
-    a query to execute it.
-    """
-    query = ["remove_namespace", "store", cls.store, "namespace", cls.namespace, "persistent", "y" if cls.persistent else "n"]
-    return run_raw_query(cls, query)
-
-# def remove_store_raw(cls: type) -> None:
-#     """
-#     Drops the store associated with the provided class settings.
-    
-#     Args:
-#         cls (type): The class containing the configuration details for the store drop.
-    
-#     This function sets the class to perform a "drop_store" command and prints 
-#     a message that the store is being dropped.
-#     """
-#     query = ["remove_store", "store", cls.store]
-#     return run_raw_query(cls, query)
-
-# def create_store_raw(cls: type) -> None:
-#     """
-#     Creates a new store using the provided class settings.
-    
-#     Args:
-#         cls (type): The class containing the configuration details for the store creation.
-    
-#     This function sets the class to perform a "create_store" command and sends 
-#     a query to execute it.
-#     """
-#     query = ["create_store", "store", cls.store, "persistent", "y" if cls.persistent else "n", "distributed", "y" if cls.distributed else "n"]
-#     return run_raw_query(cls, query)
-
-def show_store_properties_(cls: type) -> None:
-    """
-    Displays the properties of the store associated with the provided class settings.
-    
-    Args:
-        cls (type): The class containing the configuration details for the store.
-    
-    This function sets the class to perform a "show_properties" command and sends 
-    a query to retrieve the store's properties.
-    """
-    return print(
-        f"Store Name: {cls.store}\n"
-        f"Store Namespace: {cls.storespace}\n"
-        f"Persistent: {cls.persistent}\n"
-        f"Distributed: {cls.distributed}\n"
-        f"Host: {cls.host}\n"
-        f"Port: {cls.port}\n"
-        f"Username: {cls.username}\n"
-        f"Password: {cls.password}\n"
-    )

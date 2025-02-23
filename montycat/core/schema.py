@@ -1,69 +1,45 @@
+
 from typing import get_origin, get_args, get_type_hints, Union
-
-class Timestamp:
-    def __init__(self, timestamp):
-        self.timestamp = timestamp
-
-    def serialize(self):
-        return self.timestamp
-    
-    class range:
-        def __init__(self, start_timestamp, end_timestamp):
-            self.start_timestamp = start_timestamp
-            self.end_timestamp = end_timestamp
-
-        def serialize(self):
-            return {"range_timestamp": [self.start_timestamp, self.end_timestamp]}
-        
-    class after:
-        def __init__(self, after_timestamp):
-            self.after_timestamp = after_timestamp
-
-        def serialize(self):
-            return self.__dict__
-
-    class before:
-        def __init__(self, before_timestamp):
-            self.before_timestamp = before_timestamp
-
-        def serialize(self):
-            return self.__dict__
-
-
-class Pointer:
-    def __init__(self, namespace, key):
-        self.namespace = namespace.namespace
-        self.key = key
-        
-    def __str__(self):
-        """
-        Returns the string representation of the `Pointer` object, showing its 
-        dictionary representation.
-        
-        Returns:
-            str: String representation of the `Pointer` object.
-        """
-        return str(self.__dict__)
-    
-    def serialize(self):
-        """
-        Serializes the `Pointer` object into a dictionary format for easy 
-        storage or transmission.
-
-        Returns:
-            dict: A dictionary representation of the `Pointer` object.
-        """
-        return self.__dict__
+from .tools import Pointer, Timestamp
 
 class SchemaMetaclass(type):
+    """
+    Metaclass for Schema classes that provides custom string representation.
+    
+    This metaclass modifies how Schema classes are represented as strings,
+    returning just the class name instead of the default representation.
+    """
     def __str__(cls) -> str:
+        """Return the class name as string representation."""
         return cls.__name__
     
     def __repr__(cls) -> str:
+        """Return the class name as official representation."""
         return cls.__name__
 
 class Schema(metaclass=SchemaMetaclass):
+    """
+    Base class for creating schema definitions with type validation and serialization.
+    
+    This class provides the foundation for creating strongly-typed schema objects
+    with automatic validation of fields and types. It supports features such as:
+    - Automatic type checking based on type hints
+    - Required field validation
+    - Extra field detection
+    - Special handling for Pointer and Timestamp types
+    - Serialization capabilities
+    """
     def __init__(self, **kwargs):
+        """
+        Initialize a Schema instance with the provided field values.
+
+        Args:
+            **kwargs: Keyword arguments representing the schema fields and their values
+
+        Raises:
+            ValueError: If required fields are missing or unexpected fields are present
+            TypeError: If field values don't match their type hints
+        """
         hints = get_type_hints(self.__class__)
         for key, value in kwargs.items():
             setattr(self, key, value)
@@ -75,35 +51,49 @@ class Schema(metaclass=SchemaMetaclass):
         self.validate_types()
         self.schema = self.__class__.__name__
 
-    def __repr__(self):
-        return str(self.__dict__)
-    
-    def __str__(self):
-        return str(self.__dict__)
-    
-    def get_schema_name(self):
-        return self.__class__.__name__
-    
     def serialize(self):                    
         return self.__dict__
 
     def check_missing_fields(self, hints):
-        """Ensure all required fields are initialized."""
+        """
+        Verify that all required fields defined in type hints are present.
+
+        Args:
+            hints: Dictionary of type hints for the schema
+
+        Raises:
+            ValueError: If any required field is missing
+        """
         for attribute, expected_type in hints.items():
             if getattr(self, attribute) is None:
                 raise ValueError(f"Missing required field: '{attribute}'")
     
     def check_extra_fields(self, hints):
-        """Ensure no extra fields are present."""
-        # Get all defined fields based on type hints
-        defined_fields = set(hints.keys())
+        """
+        Verify that no unexpected fields are present in the instance.
 
-        # Check for extra fields in the instance
+        Args:
+            hints: Dictionary of type hints for the schema
+
+        Raises:
+            ValueError: If any unexpected field is found
+        """
+        defined_fields = set(hints.keys())
         for attribute in self.__dict__:
             if attribute not in defined_fields and not attribute.startswith('_'):
                 raise ValueError(f"Unexpected field '{attribute}' found in the instance.")
     
     def validate_types(self):
+        """
+        Validate the types of all fields against their type hints.
+        
+        This method performs type checking and special handling for Pointer and
+        Timestamp types, as well as handling Union types. It reorganizes Pointer
+        and Timestamp fields into dedicated collections.
+
+        Raises:
+            TypeError: If any field's value doesn't match its type hint
+        """
         hints = get_type_hints(self.__class__)
         for attribute, expected_type in hints.items():
             actual_value = getattr(self, attribute)
@@ -121,7 +111,6 @@ class Schema(metaclass=SchemaMetaclass):
                 self.timestamps[attribute] = actual_value.timestamp
                 delattr(self, attribute)
 
-            # Handle Union types (e.g., int | None)
             if origin is Union:
                 expected_types = get_args(expected_type)
                 if not isinstance(actual_value, expected_types) and actual_value is not None:
@@ -130,7 +119,6 @@ class Schema(metaclass=SchemaMetaclass):
                         f"but got '{type(actual_value).__name__}'"
                     )
             else:
-                # Validate against non-Union type
                 if not isinstance(actual_value, expected_type) and actual_value is not None:
                     raise TypeError(
                         f"Attribute '{attribute}' should be of type '{expected_type.__name__}', "

@@ -1,7 +1,9 @@
 from ..core.engine import Engine, send_data
-from ..store_functions.store_generic_functions import handle_pointers_for_update, handle_limit, handle_timestamps, connect_engine_inner, create_namespace_raw, remove_namespace_raw, show_store_properties_, convert_to_binary_query, convert_custom_key, convert_custom_keys, convert_custom_keys_values
-import asyncio
+from ..store_functions.store_generic_functions import \
+    handle_limit, convert_to_binary_query, convert_custom_key, \
+    convert_custom_keys, convert_custom_keys_values
 from typing import Union
+import orjson
 
 class generic_kv:
     store: str = ""
@@ -14,10 +16,10 @@ class generic_kv:
 
     @classmethod
     async def _run_query(cls, query: str):
-        return await send_data(cls.host, cls.port, query) #asyncio.run(send_data(cls.host, cls.port, query))
+        return await send_data(cls.host, cls.port, query)
     
     @classmethod
-    def insert_custom_key(cls, custom_key: str, expire_sec: int = 0):
+    async def insert_custom_key(cls, custom_key: str, expire_sec: int = 0):
         """
         Args:
             custom_key: A custom key to insert into the store. This key can be used to retrieve the value later.
@@ -25,17 +27,17 @@ class generic_kv:
         Returns:
             True if the insert operation was successful. Class 'str' if the insert operation failed.
         """
+        if not custom_key:
+            raise ValueError("No custom key provided for insertion.")
+        
         custom_key_converted = convert_custom_key(custom_key)
         cls.command = "insert_custom_key"
 
-        if not custom_key:
-            raise ValueError("No custom key provided for insertion.")
-
         query = convert_to_binary_query(cls, key=custom_key_converted, expire_sec=expire_sec)
-        return cls._run_query(query)
+        return await cls._run_query(query)
     
     @classmethod
-    def insert_custom_key_value(cls, custom_key: str, value: dict, expire_sec: int = 0):
+    async def insert_custom_key_value(cls, custom_key: str, value: dict, expire_sec: int = 0):
         """       
         Args:
             custom_key: A custom key to insert into the store. This key can be used to retrieve the value later.
@@ -43,24 +45,18 @@ class generic_kv:
             expire_sec: The number of seconds before the inserted value expires.
         Returns:
             True if the insert operation was successful. Class 'str' if the insert operation failed.
-
-            custom_key = "some_value"
-            value = {
-                "operation": 1,
-                "amount": 4500.0
-            }
             
         """
-        custom_key_converted = convert_custom_key(custom_key)
-        cls.command = "insert_custom_key_value"
-
         if not value:
             raise ValueError("No value provided for insertion.")
         if not custom_key:
             raise ValueError("No custom key provided for insertion.")
 
+        custom_key_converted = convert_custom_key(custom_key)
+        cls.command = "insert_custom_key_value"
+
         query = convert_to_binary_query(cls, key=custom_key_converted, value=value, expire_sec=expire_sec)
-        return cls._run_query(query)
+        return await cls._run_query(query)
     
     @classmethod
     async def insert_value(cls, value: dict, expire_sec: int = 0):
@@ -71,16 +67,16 @@ class generic_kv:
         Returns:
             Key number if the insert operation was successful. Class 'str' if the insert operation failed.
         """
-        cls.command = "insert_value"
-
         if not value:
             raise ValueError("No value provided for insertion.")
+        
+        cls.command = "insert_value"
 
         query = convert_to_binary_query(cls, value=value, expire_sec=expire_sec)
         return await cls._run_query(query)
     
     @classmethod
-    def get_value(cls, key: Union[int, str] = "", custom_key: str = "", with_pointers: bool = False):
+    async def get_value(cls, key: Union[int, str] = "", custom_key: str = "", with_pointers: bool = False):
 
         """
         Args:
@@ -92,16 +88,17 @@ class generic_kv:
         """
         if len(custom_key) > 0:
             key = convert_custom_key(custom_key)
-        cls.command = "get_value"
 
         if not key:
             raise ValueError("No key provided for retrieval.")
+        
+        cls.command = "get_value"
 
         query = convert_to_binary_query(cls, key=key, with_pointers=with_pointers)
-        return cls._run_query(query)
+        return await cls._run_query(query)
         
     @classmethod
-    def get_keys(cls, limit: list = []):
+    async def get_keys(cls, limit: Union[list, int] = []):
         """
         Args:
             Limit: A list of two integers that determine the range of keys to retrieve.
@@ -109,15 +106,14 @@ class generic_kv:
         Returns:
             A list of keys in the store. Class 'str' if the get operation failed.
         """
-        lim = handle_limit(limit)
-
+        cls.limit_output = handle_limit(limit)
         cls.command = "get_keys"
-        cls.limit_output = lim
+
         query = convert_to_binary_query(cls)
-        return cls._run_query(query)
+        return await cls._run_query(query)
     
     @classmethod
-    def delete_key(cls, key: Union[int, str] = "", custom_key: str = ""):
+    async def delete_key(cls, key: Union[int, str] = "", custom_key: str = ""):
         """
         Delete a key from the store. If a custom key is provided, it will be converted
         to the appropriate format before deletion.
@@ -132,20 +128,20 @@ class generic_kv:
             bool | str: Returns a boolean indicating success (True) or failure (False),
                         or a string message if the deletion was unsuccessful.
         """
-        # If a custom key is provided, convert it to the appropriate format
         if len(custom_key) > 0:
             key = convert_custom_key(custom_key)
+        #custom key should be string
 
+        if not key:
+            raise ValueError("No key provided for deletion.")
+        
         cls.command = "delete_key"  # Set the command type for the query
 
-        if not key:  # Ensure a key is provided for the deletion operation
-            raise ValueError("No key provided for deletion.")
-
         query = convert_to_binary_query(cls, key=key)  # Convert the key into a binary query format
-        return cls._run_query(query)  # Run the query and return the result
+        return await cls._run_query(query)  # Run the query and return the result
 
     @classmethod
-    def update_value(cls, key: Union[int, str] = "", custom_key: str = "", expire_sec: int = 0, **filters):
+    async def update_value(cls, key: Union[int, str] = "", custom_key: str = "", expire_sec: int = 0, **filters):
         """
         Update the value associated with a given key in the store. If a custom key is provided,
         it will be converted to the appropriate format before updating.
@@ -162,30 +158,26 @@ class generic_kv:
             bool | str: Returns a boolean indicating success (True) or failure (False),
                         or a string message if the update was unsuccessful.
         """
-        # If a custom key is provided, convert it to the appropriate format
+
         if len(custom_key) > 0:
             key = convert_custom_key(custom_key)
 
-        cls.command = "update_value"  # Set the command type for the query
-
-        if not filters:  # Ensure at least one filter is provided for the update operation
+        if not filters:
             raise ValueError("No filters provided for update.")
-        if not key:  # Ensure a key is provided for the update operation
+        if not key:
             raise ValueError("No key provided for update.")
         
-        value = handle_timestamps(filters)  # Normalize the value to update
+        # combine together two methods
+        # value = handle_timestamps(filters)  # Normalize the value to update
+        # value = handle_pointers_for_update(value)  # Normalize the pointers in the value
+        
+        cls.command = "update_value"
 
-        value = handle_pointers_for_update(value)  # Normalize the pointers in the value
+        query = convert_to_binary_query(cls, key=key, value=filters, expire_sec=expire_sec)  # Convert the key and filters into a binary query format
+        return await cls._run_query(query)  # Run the query and return the result
 
-        # print("MOD VAL", value)
-
-        query = convert_to_binary_query(cls, key=key, value=value, expire_sec=expire_sec)  # Convert the key and filters into a binary query format
-        # print(query)  # Print the query for debugging or logging purposes
-        return cls._run_query(query)  # Run the query and return the result
-
-    
     @classmethod
-    def insert_bulk(cls, bulk_values: list, expire_sec: int = 0):
+    async def insert_bulk(cls, bulk_values: list, expire_sec: int = 0):
         """       
         Args:
             bulk_values: A list of Python objects to insert into the store.
@@ -195,16 +187,16 @@ class generic_kv:
             True if the bulk insert operation was successful.
             List of values that were not inserted.
         """
-        cls.command = "insert_bulk"
 
         if not bulk_values:
             raise ValueError("No values provided for bulk insertion.")
-
+        
+        cls.command = "insert_bulk"
         query = convert_to_binary_query(cls, bulk_values=bulk_values, expire_sec=expire_sec)
-        return cls._run_query(query)
+        return await cls._run_query(query)
     
     @classmethod
-    def delete_bulk(cls, bulk_keys: list = [], bulk_custom_keys: list = []):
+    async def delete_bulk(cls, bulk_keys: list = [], bulk_custom_keys: list = []):
         """
         Delete multiple keys in bulk. If custom keys are provided, they are first converted
         to the appropriate format and then appended to the list of keys to be deleted.
@@ -223,7 +215,6 @@ class generic_kv:
         Raises:
             ValueError: If both `bulk_keys` and `bulk_custom_keys` are empty.
         """
-        # Convert custom keys if provided, and append them to the list of bulk_keys
         if len(bulk_custom_keys) > 0:
             bulk_custom_keys = convert_custom_keys(bulk_custom_keys)
             bulk_keys += bulk_custom_keys
@@ -233,10 +224,10 @@ class generic_kv:
         
         cls.command = "delete_bulk"  # Set the command for bulk deletion
         query = convert_to_binary_query(cls, bulk_keys=bulk_keys)  # Construct the query in binary format
-        return cls._run_query(query)  # Execute the query and return the result
+        return await cls._run_query(query)  # Execute the query and return the result
     
     @classmethod
-    def get_bulk(cls, bulk_keys: list = [], bulk_custom_keys: list = [], limit: list = [], with_pointers: bool = False):
+    async def get_bulk(cls, bulk_keys: list = [], bulk_custom_keys: list = [], limit: list = [], with_pointers: bool = False):
         """
         Retrieve multiple keys in bulk. Custom keys can be converted and added to the bulk retrieval list.
         Additionally, a limit on the number of records to retrieve can be applied, and whether to include pointers 
@@ -259,11 +250,6 @@ class generic_kv:
         Raises:
             ValueError: If both `bulk_keys` and `bulk_custom_keys` are empty.
         """
-        lim = handle_limit(limit)
-
-        #convert keys into str if they are integers
-        # bulk_keys = [str(key) for key in bulk_keys]
-
         if len(bulk_custom_keys) > 0:
             bulk_custom_keys = convert_custom_keys(bulk_custom_keys)  # Convert custom keys if provided
             bulk_keys += bulk_custom_keys
@@ -272,12 +258,12 @@ class generic_kv:
             raise ValueError("No keys provided for retrieval.")
         
         cls.command = "get_bulk"
-        cls.limit_output = lim
+        cls.limit_output = handle_limit(limit)
         query = convert_to_binary_query(cls, bulk_keys=bulk_keys, with_pointers=with_pointers)
-        return cls._run_query(query)
+        return await cls._run_query(query)
     
     @classmethod
-    def update_bulk(cls, bulk_keys_values: dict = {}, bulk_custom_keys_values: dict = {}):
+    async def update_bulk(cls, bulk_keys_values: dict = {}, bulk_custom_keys_values: dict = {}):
         """
         Update multiple keys in bulk with the provided new values. If custom keys are provided, 
         they will be converted before being applied to the bulk update.
@@ -300,18 +286,19 @@ class generic_kv:
             bulk_custom_keys_values = convert_custom_keys_values(bulk_custom_keys_values)  # Convert custom keys and values
             bulk_keys_values = {**bulk_keys_values, **bulk_custom_keys_values}  # Merge the dictionaries
 
-        for k, v in bulk_keys_values.items():
-            bulk_custom_keys_values[k] = handle_timestamps(v)  # Normalize the values to update
+        #handle timestamps and pointers in bulk_keys_values together COMBINE!
+        # for k, v in bulk_keys_values.items():
+        #     bulk_custom_keys_values[k] = handle_timestamps(v)
         
-        if not bulk_keys_values:  # Ensure at least one key-value pair exists for the operation
+        if not bulk_keys_values:
             raise ValueError("No key-value pairs provided for update.")
         
         cls.command = "update_bulk"  # Set the command for bulk update
         query = convert_to_binary_query(cls, bulk_keys_values=bulk_keys_values)  # Build the query in binary format
-        return cls._run_query(query)  # Execute the query and return the result
+        return await cls._run_query(query)  # Execute the query and return the result
     
     @classmethod
-    def lookup_keys_where(cls, limit: int = 0, schema: Union[str, None] = None, **filters):
+    async def lookup_keys_where(cls, limit: int = 0, schema: Union[str, None] = None, **filters):
         """
         Perform a lookup for keys matching the given filters with an optional limit on the number of records returned.
 
@@ -325,34 +312,23 @@ class generic_kv:
         Raises:
             ValueError: If no filters are provided.
         """
-        lim = handle_limit(limit)# Normalize the limit argument
-
         if not filters:  # Ensure filters are provided for the lookup
             raise ValueError("No criteria provided for the lookup.")
         
-        search_criteria = handle_timestamps(filters)  # Normalize the search criteria
+        # search_criteria = handle_timestamps(filters)  # Normalize the search criteria
 
         if schema:
             cls.schema = str(schema)
         else: 
             cls.schema = None
-
-        # if search_criteria.get("schema"):
-        #     cls.schema = str(search_criteria.get("schema"))
-        #     del search_criteria["schema"]
-        # else:
-        #     cls.schema = None
-
-        # if schema:
-        #     cls.schema = schema
         
         cls.command = "lookup_keys"
-        cls.limit_output = lim
-        query = convert_to_binary_query(cls, search_criteria=search_criteria)
-        return cls._run_query(query)
+        cls.limit_output = handle_limit(limit)
+        query = convert_to_binary_query(cls, search_criteria=filters)
+        return await cls._run_query(query)
     
     @classmethod
-    def lookup_values_where(cls, limit=0, with_pointers: bool = False, schema: Union[str, None] = None, **filters):
+    async def lookup_values_where(cls, limit=0, with_pointers: bool = False, schema: Union[str, None] = None, **filters):
         """
         Perform a lookup for values matching the given filters, with options to apply a limit and include pointer information.
 
@@ -367,12 +343,10 @@ class generic_kv:
         Raises:
             ValueError: If no filters are provided.
         """
-        lim = handle_limit(limit) # Normalize the limit argument
-
         if not filters: # Ensure filters are provided for the lookup
             raise ValueError("No criteria provided for the lookup.")
         
-        search_criteria = handle_timestamps(filters) # Normalize the search criteria
+        # search_criteria = handle_timestamps(filters) # Normalize the search criteria
 
         if schema:
             cls.schema = str(schema)
@@ -380,12 +354,13 @@ class generic_kv:
             cls.schema = None
 
         cls.command = "lookup_values"
-        cls.limit_output = lim
-        query = convert_to_binary_query(cls, search_criteria=search_criteria, with_pointers=with_pointers)
-        return cls._run_query(query)
+        # if class Limit then do not handle limit JUST use prebuild function -> return_limit()
+        cls.limit_output = handle_limit(limit) 
+        query = convert_to_binary_query(cls, search_criteria=filters, with_pointers=with_pointers)
+        return await cls._run_query(query)
 
     @classmethod
-    def list_all_depending_keys(cls, key: Union[str, int] = "", custom_key: str = ""):
+    async def list_all_depending_keys(cls, key: Union[str, int] = "", custom_key: str = ""):
         """
         List all keys that depend on a specified key or custom key.
 
@@ -416,41 +391,77 @@ class generic_kv:
         cls.command = "list_all_depending_keys"
 
         query = convert_to_binary_query(cls, key=key)
-        return cls._run_query(query)
+        return await cls._run_query(query)
     
     @classmethod
-    def get_len(cls):
+    async def get_len(cls):
         cls.command = "get_len"
         query = convert_to_binary_query(cls)
-        return cls._run_query(query)
-    
-    @classmethod
-    def to_blockchain(cls, key: int):
-        cls.command = "blockchain"
-        cls.persistent = True
-        cls.blockchain = True
-        query = convert_to_binary_query(cls, key=key)
-        return cls._run_query(query)
+        return await cls._run_query(query)
     
     @classmethod
     def connect_engine(cls, engine: Engine) -> None:
-        connect_engine_inner(cls, engine)
+        """
+        Establishes a connection to the specified engine, setting the necessary connection details.
+        
+        Args:
+            cls (type): The class that will hold the connection information.
+            engine (Engine): An instance of the Engine class containing connection details.
+        
+        This function updates the class with connection attributes such as username, 
+        password, host, port, and store name.
+        """
+        cls.username = engine.username
+        cls.password = engine.password
+        cls.host = engine.host
+        cls.port = engine.port
+        cls.store = engine.store
 
     @classmethod  
-    def create_namespace(cls):
-        return create_namespace_raw(cls)
+    async def create_namespace(cls):
+
+        query = orjson.dumps({
+            "raw": ["create_namespace", "store", cls.store, "namespace", cls.namespace, "persistent", "y" if cls.persistent else "n"],
+            "superowner_credentials": [cls.username, cls.password]
+        })
+
+        return await cls._run_query(query)
     
     @classmethod  
-    def remove_namespace(cls):
-        return remove_namespace_raw(cls)
+    async def remove_namespace(cls):
+
+        query = orjson.dumps({
+            "raw": ["remove_namespace", "store", cls.store, "namespace", cls.namespace, "persistent", "y" if cls.persistent else "n"],
+            "superowner_credentials": [cls.username, cls.password]
+        })
+
+        return await cls._run_query(query)
     
     @classmethod
-    def list_all_schemas_in_namespace(cls):
+    async def list_all_schemas_in_namespace(cls):
         cls.command = "list_all_schemas_in_namespace"
         query = convert_to_binary_query(cls)
-        return cls._run_query(query)
+        return await cls._run_query(query)
 
     @classmethod
     def show_store_properties(cls):
-        show_store_properties_(cls)
+        """
+        Displays the properties of the store associated with the provided class settings.
+        
+        Args:
+            cls (type): The class containing the configuration details for the store.
+        
+        This function sets the class to perform a "show_properties" command and sends 
+        a query to retrieve the store's properties.
+        """
+        return print(
+            f"Store Name: {cls.store}\n"
+            f"Store Namespace: {cls.store}\n"
+            f"Persistent: {cls.persistent}\n"
+            f"Distributed: {cls.distributed}\n"
+            f"Host: {cls.host}\n"
+            f"Port: {cls.port}\n"
+            f"Username: {cls.username}\n"
+            f"Password: {cls.password}\n"
+        )
 
