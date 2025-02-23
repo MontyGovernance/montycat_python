@@ -2,7 +2,7 @@
 
 # Configuration
 PACKAGE_NAME="montycat"
-VERSION="0.1.2"
+VERSION="0.1.3"
 # Define multiple source directories and their files
 declare -A SOURCE_DIRS
 SOURCE_DIRS["montycat/core"]="engine.py schema.py"      # Space-separated list of files
