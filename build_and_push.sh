@@ -151,17 +151,18 @@ build_and_push() {
         exit 1
     fi
 
-    if [ -n "$PYPI_TOKEN" ]; then
+    if [ "$CI_DEPLOY" == "true" ] && [ -n "$PYPI_TOKEN" ]; then
         echo "Uploading $TAR_FILE to PyPI..."
         twine upload --repository pypi --username "__token__" --password "$PYPI_TOKEN" "$TAR_FILE"
         echo "Uploaded $TAR_FILE to PyPI"
     else
-        echo "Warning: PYPI_TOKEN not set. Skipping upload. Built file: $TAR_FILE"
+        echo "Dry run or PYPI_TOKEN not set. Skipping upload. Built file: $TAR_FILE"
     fi
 }
 
 # Main execution
 main() {
+    CI_DEPLOY="${CI_DEPLOY:-false}"  # Default to false unless set by CI
     check_prerequisites
     compile_file
     clean_pycache
