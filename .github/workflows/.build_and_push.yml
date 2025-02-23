@@ -3,10 +3,10 @@ name: CI/CD Pipeline for MontyCat
 on:
   push:
     branches:
-      - main
+      - master
   pull_request:
     branches:
-      - main
+      - master
   release:
     types: [published]
     

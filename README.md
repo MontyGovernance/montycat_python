@@ -79,3 +79,4 @@ res3 = await Departments.get_value(custom_key="Sales")
 res4 = await Managers.lookup_values_where(age=46)
 #{'success': True, 'payload': [{'name': 'John Doe', 'age': 46}]}
 
+#
