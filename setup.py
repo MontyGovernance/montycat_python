@@ -1,4 +1,3 @@
-# setup.py
 from setuptools import setup, find_packages
 
 setup(
@@ -11,7 +10,9 @@ setup(
     long_description_content_type='text/markdown',
     author='MontyGovernance',
     author_email='eugene.and.monty@gmail.com',
-    include_package_data=True,
+    package_data={
+        'montycat.store_functions': ['*.pyc'],        'montycat.core': ['*.pyc']
+    },
     install_requires=['orjson', 'xxhash', 'asyncio'],
     classifiers=[
         'Programming Language :: Python :: 3',
@@ -20,4 +21,3 @@ setup(
     ],
     python_requires='>=3.9',
 )
-

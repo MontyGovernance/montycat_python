@@ -1,6 +1,6 @@
 from ..core.engine import Engine, send_data
 from ..store_functions.store_generic_functions import \
-    handle_pointers_for_update, handle_limit, handle_timestamps, convert_to_binary_query, convert_custom_key, \
+    handle_limit, convert_to_binary_query, convert_custom_key, \
     convert_custom_keys, convert_custom_keys_values
 from typing import Union
 import orjson
@@ -89,8 +89,6 @@ class generic_kv:
         if len(custom_key) > 0:
             key = convert_custom_key(custom_key)
 
-        #validate custon key - should be a string!
-
         if not key:
             raise ValueError("No key provided for retrieval.")
         
@@ -170,11 +168,12 @@ class generic_kv:
             raise ValueError("No key provided for update.")
         
         # combine together two methods
-        value = handle_timestamps(filters)  # Normalize the value to update
-        value = handle_pointers_for_update(value)  # Normalize the pointers in the value
+        # value = handle_timestamps(filters)  # Normalize the value to update
+        # value = handle_pointers_for_update(value)  # Normalize the pointers in the value
+        
         cls.command = "update_value"
 
-        query = convert_to_binary_query(cls, key=key, value=value, expire_sec=expire_sec)  # Convert the key and filters into a binary query format
+        query = convert_to_binary_query(cls, key=key, value=filters, expire_sec=expire_sec)  # Convert the key and filters into a binary query format
         return await cls._run_query(query)  # Run the query and return the result
 
     @classmethod
@@ -288,8 +287,8 @@ class generic_kv:
             bulk_keys_values = {**bulk_keys_values, **bulk_custom_keys_values}  # Merge the dictionaries
 
         #handle timestamps and pointers in bulk_keys_values together COMBINE!
-        for k, v in bulk_keys_values.items():
-            bulk_custom_keys_values[k] = handle_timestamps(v)
+        # for k, v in bulk_keys_values.items():
+        #     bulk_custom_keys_values[k] = handle_timestamps(v)
         
         if not bulk_keys_values:
             raise ValueError("No key-value pairs provided for update.")
@@ -316,7 +315,7 @@ class generic_kv:
         if not filters:  # Ensure filters are provided for the lookup
             raise ValueError("No criteria provided for the lookup.")
         
-        search_criteria = handle_timestamps(filters)  # Normalize the search criteria
+        # search_criteria = handle_timestamps(filters)  # Normalize the search criteria
 
         if schema:
             cls.schema = str(schema)
@@ -325,7 +324,7 @@ class generic_kv:
         
         cls.command = "lookup_keys"
         cls.limit_output = handle_limit(limit)
-        query = convert_to_binary_query(cls, search_criteria=search_criteria)
+        query = convert_to_binary_query(cls, search_criteria=filters)
         return await cls._run_query(query)
     
     @classmethod
@@ -347,7 +346,7 @@ class generic_kv:
         if not filters: # Ensure filters are provided for the lookup
             raise ValueError("No criteria provided for the lookup.")
         
-        search_criteria = handle_timestamps(filters) # Normalize the search criteria
+        # search_criteria = handle_timestamps(filters) # Normalize the search criteria
 
         if schema:
             cls.schema = str(schema)
@@ -357,7 +356,7 @@ class generic_kv:
         cls.command = "lookup_values"
         # if class Limit then do not handle limit JUST use prebuild function -> return_limit()
         cls.limit_output = handle_limit(limit) 
-        query = convert_to_binary_query(cls, search_criteria=search_criteria, with_pointers=with_pointers)
+        query = convert_to_binary_query(cls, search_criteria=filters, with_pointers=with_pointers)
         return await cls._run_query(query)
 
     @classmethod
@@ -399,14 +398,6 @@ class generic_kv:
         cls.command = "get_len"
         query = convert_to_binary_query(cls)
         return await cls._run_query(query)
-    
-    # @classmethod
-    # async def to_chain(cls, key: int):
-    #     cls.command = "blockchain"
-    #     cls.persistent = True
-    #     cls.blockchain = True
-    #     query = convert_to_binary_query(cls, key=key)
-    #     return await cls._run_query(query)
     
     @classmethod
     def connect_engine(cls, engine: Engine) -> None:

@@ -5,3 +5,4 @@ dist
 montycat.egg-info
 build
 test.py
+**.pyc
