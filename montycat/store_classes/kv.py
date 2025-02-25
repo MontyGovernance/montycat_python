@@ -421,7 +421,7 @@ class generic_kv:
     async def create_namespace(cls):
 
         query = orjson.dumps({
-            "raw": ["create_namespace", "store", cls.store, "namespace", cls.namespace, "persistent", "y" if cls.persistent else "n"],
+            "raw": ["create-namespace", "store", cls.store, "namespace", cls.namespace, "persistent", "y" if cls.persistent else "n"],
             "superowner_credentials": [cls.username, cls.password]
         })
 
@@ -431,7 +431,7 @@ class generic_kv:
     async def remove_namespace(cls):
 
         query = orjson.dumps({
-            "raw": ["remove_namespace", "store", cls.store, "namespace", cls.namespace, "persistent", "y" if cls.persistent else "n"],
+            "raw": ["remove-namespace", "store", cls.store, "namespace", cls.namespace, "persistent", "y" if cls.persistent else "n"],
             "superowner_credentials": [cls.username, cls.password]
         })
 

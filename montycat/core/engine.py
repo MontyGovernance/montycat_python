@@ -60,7 +60,7 @@ class Engine:
             bool
         """
         return await self._execute_query([
-            'create_store', "store", self.store, "persistent", "y" if persistent else "n"
+            'create-store', "store", self.store, "persistent", "y" if persistent else "n"
         ])
 
     async def remove_store(self, persistent: bool = False) -> Any:
@@ -74,7 +74,7 @@ class Engine:
             bool
         """
         return await self._execute_query([
-            'remove_store', "store", self.store, "persistent", "y" if persistent else "n"
+            'remove-store', "store", self.store, "persistent", "y" if persistent else "n"
         ])
 
     async def grant_to(self, owner: str, permission: Union[str, Permission], namespaces: Optional[Union[List[str], str]] = None) -> Any:
@@ -95,7 +95,7 @@ class Engine:
         if permission not in self.VALID_PERMISSIONS:
             raise ValueError(f"Invalid permission: {permission}. Valid permissions are: {self.VALID_PERMISSIONS}")
 
-        command = ['grant_to', "owner", owner, "permission", permission, "store", self.store]
+        command = ['grant-to', "owner", owner, "permission", permission, "store", self.store]
         if namespaces:
             command.append("namespaces")
             if isinstance(namespaces, str):
@@ -123,7 +123,7 @@ class Engine:
         if permission not in self.VALID_PERMISSIONS:
             raise ValueError(f"Invalid permission: {permission}. Valid permissions are: {self.VALID_PERMISSIONS}")
 
-        command = ['revoke_from', "owner", owner, "permission", permission, "store", self.store]
+        command = ['revoke-from', "owner", owner, "permission", permission, "store", self.store]
         if namespaces:
             command.append("namespaces")
             if isinstance(namespaces, str):
@@ -145,7 +145,7 @@ class Engine:
             bool.
         """
         return await self._execute_query([
-            'create_owner', "username", owner, "password", password
+            'create-owner', "username", owner, "password", password
         ])
 
     async def remove_owner(self, owner: str) -> Any:
@@ -159,7 +159,7 @@ class Engine:
             bool
         """
         return await self._execute_query([
-            'remove_owner', "username", owner
+            'remove-owner', "username", owner
         ])
 
     async def list_owners(self) -> Any:
@@ -169,4 +169,4 @@ class Engine:
         Returns:
             Any: The server's response containing the list of owners.
         """
-        return await self._execute_query(['list_owners'])
+        return await self._execute_query(['list-owners'])
