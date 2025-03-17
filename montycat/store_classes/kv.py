@@ -16,21 +16,27 @@ class generic_kv:
     async def _run_query(cls, query: str):
         return await send_data(cls.host, cls.port, query)
     
-    # @classmethod
-    # async def do_snaphots(cls, snaphots_rate: int = 0):
-    #     """
-    #     Args:
-    #         snaphot_rate: The number of seconds between snapshots.
-    #     Returns:
-    #         True if the snapshot operation was successful. Class 'str' if the snapshot operation failed.
-    #     """
+    @classmethod
+    async def do_snaphots(cls):
+        """
+        Args:
+            snaphot_rate: The number of seconds between snapshots.
+        Returns:
+            True if the snapshot operation was successful. Class 'str' if the snapshot operation failed.
+        """
         
-    #     if not snaphots_rate:
-    #         raise ValueError("No snapshot rate provided.")
-        
-    #     cls.command = "do-snapshots"
-    #     query = convert_to_binary_query(cls, snapshots_rate=snaphots_rate)
-    #     return await cls._run_query(query)
+        # cls.command = "do-snapshots"
+        # query = convert_to_binary_query(cls)
+
+        if cls.persistent:
+            raise ValueError("Cannot take snapshots on a persistent store.")
+
+        query = orjson.dumps({
+            "raw": ["do-snapshots", "store", cls.store, "keyspace", cls.keyspace, "persistent", "n"],
+            "superowner_credentials": [cls.username, cls.password]
+        })
+
+        return await cls._run_query(query)
     
     @classmethod
     async def insert_custom_key(cls, custom_key: str, expire_sec: int = 0):
