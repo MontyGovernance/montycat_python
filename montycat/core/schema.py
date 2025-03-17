@@ -102,7 +102,7 @@ class Schema(metaclass=SchemaMetaclass):
             if expected_type is Pointer:
                 if 'pointers' not in self.__dict__:
                     self.pointers = {}
-                self.pointers[attribute] = [actual_value.namespace, actual_value.key]
+                self.pointers[attribute] = [actual_value.keyspace, actual_value.key]
                 delattr(self, attribute)
 
             if expected_type is Timestamp:

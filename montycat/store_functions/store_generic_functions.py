@@ -1,25 +1,7 @@
-from ..core.engine import Engine
 from ..core.tools import Timestamp, Pointer, Limit
 import orjson
 import xxhash
 from typing import Type, Dict, List, Union, Any
-
-# def connect_engine_inner(cls: type, engine: Engine) -> None:
-#     """
-#     Establishes a connection to the specified engine, setting the necessary connection details.
-    
-#     Args:
-#         cls (type): The class that will hold the connection information.
-#         engine (Engine): An instance of the Engine class containing connection details.
-    
-#     This function updates the class with connection attributes such as username, 
-#     password, host, port, and store name.
-#     """
-#     cls.username = engine.username
-#     cls.password = engine.password
-#     cls.host = engine.host
-#     cls.port = engine.port
-#     cls.store = engine.store
 
 def convert_custom_key(key: Union[int, str]) -> int:
     """
@@ -91,7 +73,7 @@ def modify_pointers(value: dict):
             - 'timestamps': A dictionary of all the '_timestamp' fields stored as strings.
     
     Raises:
-        ValueError: If a '_pointer' entry is not a list of two elements (namespace, key), 
+        ValueError: If a '_pointer' entry is not a list of two elements (keyspace, key), 
                     or if a '_timestamp' value is not a string.
     
     This function ensures that all pointer values are correctly processed and stored in the 
@@ -101,12 +83,12 @@ def modify_pointers(value: dict):
         for key in list(value.keys()):
             if key == "pointers":
                 for k, v in value[key].items():
-                    namespace, raw_key = v
+                    keyspace, raw_key = v
                     if isinstance(raw_key, str) and raw_key.isdigit() or isinstance(raw_key, int):
                         processed_key = str(raw_key)
                     else:
                         processed_key = convert_custom_key(raw_key)
-                    value[key][k] = [namespace, processed_key]
+                    value[key][k] = [keyspace, processed_key]
 
     except Exception as e:
         raise ValueError(f"Error processing pointers: {e}")
@@ -117,14 +99,15 @@ def normalize_bools(s: str) -> str:
 
 def convert_to_binary_query(
     cls: Type,
-    key: str = "",
+    key: Union[str, None] = None,
     search_criteria: Dict[str, Any] = None,
     value: Dict[str, Any] = None,
     expire_sec: int = 0,
     bulk_values: List[Dict[str, Any]] = None,
     bulk_keys: List[str] = None,
     bulk_keys_values: Dict[str, Any] = None,
-    with_pointers: bool = False
+    with_pointers: bool = False,
+    # snapshots_rate: Union[int, None] = None,
 ) -> bytes:
     """
     Converts parameters into a binary query format suitable for transmission.
@@ -188,24 +171,23 @@ def convert_to_binary_query(
     
     query_dict = {
         "schema": cls.schema,
-        "request": cls.request,
         "username": cls.username,
         "password": cls.password,
-        "namespace": cls.namespace,
+        "keyspace": cls.keyspace,
         "store": cls.store,
         "persistent": cls.persistent,
         "distributed": cls.distributed,
         "limit_output": cls.limit_output,
-        "key": str(key),
+        "key": key if key == None else str(key),
         "value": normalize_bools(str(value)),
         "command": cls.command,
         "expire": expire_sec,
         "bulk_values": [normalize_bools(v) for v in bulk_values],
         "bulk_keys": bulk_keys,
         "bulk_keys_values": {k: normalize_bools(str(v)) for k, v in bulk_keys_values.items()},
-        "blockchain": cls.blockchain,
         "search_criteria": normalize_bools(str(search_criteria)),
         "with_pointers": with_pointers,
+        # "snapshots_rate": snapshots_rate,
     }
         
     return orjson.dumps(query_dict)
@@ -248,4 +230,4 @@ def handle_limit(limit: Union[list, int]) -> dict:
             raise ValueError("Limit should be an integer greater than 0.")
     else:
         raise ValueError("Limit should be either a list (with two values) or a positive integer.")
-    return limit_instance.return_limit()
+    return limit_instance.serialize()

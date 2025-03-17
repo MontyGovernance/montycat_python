@@ -9,14 +9,28 @@ class generic_kv:
     store: str = ""
     command: str = ""
     persistent: bool = False
-    request: str = "store"
-    blockchain: bool = False
     limit_output: dict = {}
     schema = None
 
     @classmethod
     async def _run_query(cls, query: str):
         return await send_data(cls.host, cls.port, query)
+    
+    # @classmethod
+    # async def do_snaphots(cls, snaphots_rate: int = 0):
+    #     """
+    #     Args:
+    #         snaphot_rate: The number of seconds between snapshots.
+    #     Returns:
+    #         True if the snapshot operation was successful. Class 'str' if the snapshot operation failed.
+    #     """
+        
+    #     if not snaphots_rate:
+    #         raise ValueError("No snapshot rate provided.")
+        
+    #     cls.command = "do-snapshots"
+    #     query = convert_to_binary_query(cls, snapshots_rate=snaphots_rate)
+    #     return await cls._run_query(query)
     
     @classmethod
     async def insert_custom_key(cls, custom_key: str, expire_sec: int = 0):
@@ -76,7 +90,7 @@ class generic_kv:
         return await cls._run_query(query)
     
     @classmethod
-    async def get_value(cls, key: Union[int, str] = "", custom_key: str = "", with_pointers: bool = False):
+    async def get_value(cls, key: Union[str, None] = None, custom_key: Union[str, None] = None, with_pointers: bool = False):
 
         """
         Args:
@@ -113,7 +127,7 @@ class generic_kv:
         return await cls._run_query(query)
     
     @classmethod
-    async def delete_key(cls, key: Union[int, str] = "", custom_key: str = ""):
+    async def delete_key(cls, key: Union[str, None] = None, custom_key: Union[str, None] = None):
         """
         Delete a key from the store. If a custom key is provided, it will be converted
         to the appropriate format before deletion.
@@ -141,7 +155,7 @@ class generic_kv:
         return await cls._run_query(query)  # Run the query and return the result
 
     @classmethod
-    async def update_value(cls, key: Union[int, str] = "", custom_key: str = "", expire_sec: int = 0, **filters):
+    async def update_value(cls, key: Union[str, None] = None, custom_key: Union[str, None] = None, expire_sec: int = 0, **filters):
         """
         Update the value associated with a given key in the store. If a custom key is provided,
         it will be converted to the appropriate format before updating.
@@ -360,7 +374,7 @@ class generic_kv:
         return await cls._run_query(query)
 
     @classmethod
-    async def list_all_depending_keys(cls, key: Union[str, int] = "", custom_key: str = ""):
+    async def list_all_depending_keys(cls, key: Union[str, None] = None, custom_key: Union[str, None] = None):
         """
         List all keys that depend on a specified key or custom key.
 
@@ -418,28 +432,28 @@ class generic_kv:
         cls.store = engine.store
 
     @classmethod  
-    async def create_namespace(cls):
+    async def create_keyspace(cls):
 
         query = orjson.dumps({
-            "raw": ["create-namespace", "store", cls.store, "namespace", cls.namespace, "persistent", "y" if cls.persistent else "n"],
+            "raw": ["create-keyspace", "store", cls.store, "keyspace", cls.keyspace, "persistent", "y" if cls.persistent else "n"],
             "superowner_credentials": [cls.username, cls.password]
         })
 
         return await cls._run_query(query)
     
     @classmethod  
-    async def remove_namespace(cls):
+    async def remove_keyspace(cls):
 
         query = orjson.dumps({
-            "raw": ["remove-namespace", "store", cls.store, "namespace", cls.namespace, "persistent", "y" if cls.persistent else "n"],
+            "raw": ["remove-keyspace", "store", cls.store, "keyspace", cls.keyspace, "persistent", "y" if cls.persistent else "n"],
             "superowner_credentials": [cls.username, cls.password]
         })
 
         return await cls._run_query(query)
     
     @classmethod
-    async def list_all_schemas_in_namespace(cls):
-        cls.command = "list_all_schemas_in_namespace"
+    async def list_all_schemas_in_keyspace(cls):
+        cls.command = "list_all_schemas_in_keyspace"
         query = convert_to_binary_query(cls)
         return await cls._run_query(query)
 
@@ -456,7 +470,7 @@ class generic_kv:
         """
         return print(
             f"Store Name: {cls.store}\n"
-            f"Store Namespace: {cls.store}\n"
+            f"Store keyspace: {cls.store}\n"
             f"Persistent: {cls.persistent}\n"
             f"Distributed: {cls.distributed}\n"
             f"Host: {cls.host}\n"

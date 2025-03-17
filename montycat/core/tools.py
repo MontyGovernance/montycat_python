@@ -23,13 +23,13 @@ class Timestamp:
 
 class Pointer:
     """A simple class representing a reference pointer."""
-    def __init__(self, namespace, key):
-        self.namespace = namespace.namespace if hasattr(namespace, 'namespace') else namespace
+    def __init__(self, keyspace, key):
+        self.keyspace = keyspace.keyspace if hasattr(keyspace, 'keyspace') else keyspace
         self.key = key
 
     def serialize(self):
         """Serialize the pointer to a dictionary."""
-        return {"namespace": self.namespace, "key": self.key}
+        return {"keyspace": self.keyspace, "key": self.key}
 
 class Limit:
     """A class for pagination limits."""

@@ -34,10 +34,10 @@ connection = Engine(
 )
 
 class Departments(Store.Persistent):
-    namespace = "departments"
+    keyspace = "departments"
 
 class Managers(Store.InMemory):
-    namespace = "managers"
+    keyspace = "managers"
 
 Departments.connect_engine(connection)
 Managers.connect_engine(connection)
@@ -45,8 +45,8 @@ Managers.connect_engine(connection)
 #migrations.py -- execute separately 
 from models.py import Departments, Managers
 
-Departments.create_namespace()
-Managers.create_namespace()
+Departments.create_keyspace()
+Managers.create_keyspace()
 
 class Department(Schema):
     name: str
