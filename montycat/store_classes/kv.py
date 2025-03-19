@@ -5,10 +5,67 @@ from ..store_functions.store_generic_functions import \
 from typing import Union
 import orjson
 
+class inmemory_kv:
+    persistent: bool = False
+
+    @classmethod
+    async def _run_query(cls, query: str):
+        return await send_data(cls.host, cls.port, query)
+    
+    @classmethod
+    async def do_snaphots_for_keyspace(cls):
+        """
+        Returns:
+            True if the snapshot operation was successful. Class 'str' if the snapshot operation failed.
+        """
+        
+        # if cls.persistent:
+        #     raise ValueError("Cannot take snapshots on a persistent store.")
+
+        query = orjson.dumps({
+            "raw": ["do-snapshots-for-keyspace", "store", cls.store, "keyspace", cls.keyspace, "persistent", "n"],
+            "superowner_credentials": [cls.username, cls.password]
+        })
+
+        return await cls._run_query(query)
+    
+    @classmethod
+    async def clean_snapshots_for_keyspace(cls):
+        """
+        Returns:
+            True if the snapshot operation was successful. Class 'str' if the snapshot operation failed.
+        """
+        
+        # if cls.persistent:
+        #     raise ValueError("Cannot clean snapshots on a persistent store.")
+
+        query = orjson.dumps({
+            "raw": ["clean-snapshots-for-keyspace", "store", cls.store, "keyspace", cls.keyspace, "persistent", "n"],
+            "superowner_credentials": [cls.username, cls.password]
+        })
+
+        return await cls._run_query(query)
+    
+    async def stop_snapshots_for_keyspace(cls):
+        """
+        Returns:
+            True if the snapshot operation was successful. Class 'str' if the snapshot operation failed.
+        """
+        
+        # if cls.persistent:
+        #     raise ValueError("Cannot stop snapshots on a persistent store.")
+
+        query = orjson.dumps({
+            "raw": ["stop-snapshots-for-keyspace", "store", cls.store, "keyspace", cls.keyspace, "persistent", "n"],
+            "superowner_credentials": [cls.username, cls.password]
+        })
+
+        return await cls._run_query(query)
+
 class generic_kv:
     store: str = ""
     command: str = ""
-    persistent: bool = False
+    # persistent: bool = False
     limit_output: dict = {}
     schema = None
 
@@ -16,27 +73,55 @@ class generic_kv:
     async def _run_query(cls, query: str):
         return await send_data(cls.host, cls.port, query)
     
-    @classmethod
-    async def do_snaphots(cls):
-        """
-        Args:
-            snaphot_rate: The number of seconds between snapshots.
-        Returns:
-            True if the snapshot operation was successful. Class 'str' if the snapshot operation failed.
-        """
+    # @classmethod
+    # async def do_snaphots_for_keyspace(cls):
+    #     """
+    #     Returns:
+    #         True if the snapshot operation was successful. Class 'str' if the snapshot operation failed.
+    #     """
         
-        # cls.command = "do-snapshots"
-        # query = convert_to_binary_query(cls)
+    #     if cls.persistent:
+    #         raise ValueError("Cannot take snapshots on a persistent store.")
 
-        if cls.persistent:
-            raise ValueError("Cannot take snapshots on a persistent store.")
+    #     query = orjson.dumps({
+    #         "raw": ["do-snapshots-for-keyspace", "store", cls.store, "keyspace", cls.keyspace, "persistent", "n"],
+    #         "superowner_credentials": [cls.username, cls.password]
+    #     })
 
-        query = orjson.dumps({
-            "raw": ["do-snapshots", "store", cls.store, "keyspace", cls.keyspace, "persistent", "n"],
-            "superowner_credentials": [cls.username, cls.password]
-        })
+    #     return await cls._run_query(query)
+    
+    # @classmethod
+    # async def clean_snapshots_for_keyspace(cls):
+    #     """
+    #     Returns:
+    #         True if the snapshot operation was successful. Class 'str' if the snapshot operation failed.
+    #     """
+        
+    #     if cls.persistent:
+    #         raise ValueError("Cannot clean snapshots on a persistent store.")
 
-        return await cls._run_query(query)
+    #     query = orjson.dumps({
+    #         "raw": ["clean-snapshots-for-keyspace", "store", cls.store, "keyspace", cls.keyspace, "persistent", "n"],
+    #         "superowner_credentials": [cls.username, cls.password]
+    #     })
+
+    #     return await cls._run_query(query)
+    
+    # async def stop_snapshots_for_keyspace(cls):
+    #     """
+    #     Returns:
+    #         True if the snapshot operation was successful. Class 'str' if the snapshot operation failed.
+    #     """
+        
+    #     if cls.persistent:
+    #         raise ValueError("Cannot stop snapshots on a persistent store.")
+
+    #     query = orjson.dumps({
+    #         "raw": ["stop-snapshots-for-keyspace", "store", cls.store, "keyspace", cls.keyspace, "persistent", "n"],
+    #         "superowner_credentials": [cls.username, cls.password]
+    #     })
+
+    #     return await cls._run_query(query)
     
     @classmethod
     async def insert_custom_key(cls, custom_key: str, expire_sec: int = 0):
@@ -474,14 +559,4 @@ class generic_kv:
         This function sets the class to perform a "show_properties" command and sends 
         a query to retrieve the store's properties.
         """
-        return print(
-            f"Store Name: {cls.store}\n"
-            f"Store keyspace: {cls.store}\n"
-            f"Persistent: {cls.persistent}\n"
-            f"Distributed: {cls.distributed}\n"
-            f"Host: {cls.host}\n"
-            f"Port: {cls.port}\n"
-            f"Username: {cls.username}\n"
-            f"Password: {cls.password}\n"
-        )
-
+        return cls.__dict__
