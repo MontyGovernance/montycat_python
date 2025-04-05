@@ -77,14 +77,14 @@ class Engine:
             'remove-store', "store", self.store, "persistent", "y" if persistent else "n"
         ])
 
-    async def grant_to(self, owner: str, permission: Union[str, Permission], namespaces: Optional[Union[List[str], str]] = None) -> Any:
+    async def grant_to(self, owner: str, permission: Union[str, Permission], keyspaces: Optional[Union[List[str], str]] = None) -> Any:
         """
         Grants specific permissions to a user for the current store.
 
         Args:
             owner (str): The user to grant permissions to.
             permission (str): The type of permission ('read', 'write', 'all').
-            namespaces (Optional[Union[List[str], str]]): Optional namespaces for permission scoping.
+            keyspaces (Optional[Union[List[str], str]]): Optional keyspaces for permission scoping.
 
         Returns:
             bool
@@ -96,23 +96,23 @@ class Engine:
             raise ValueError(f"Invalid permission: {permission}. Valid permissions are: {self.VALID_PERMISSIONS}")
 
         command = ['grant-to', "owner", owner, "permission", permission, "store", self.store]
-        if namespaces:
-            command.append("namespaces")
-            if isinstance(namespaces, str):
-                command.append(namespaces)
+        if keyspaces:
+            command.append("keyspaces")
+            if isinstance(keyspaces, str):
+                command.append(keyspaces)
             else:
-                command.extend(namespaces)
+                command.extend(keyspaces)
 
         return await self._execute_query(command)
 
-    async def revoke_from(self, owner: str, permission: Union[str, Permission], namespaces: Optional[Union[List[str], str]] = None) -> Any:
+    async def revoke_from(self, owner: str, permission: Union[str, Permission], keyspaces: Optional[Union[List[str], str]] = None) -> Any:
         """
         Revokes specific permissions from a user for the current store.
 
         Args:
             owner (str): The user to revoke permissions from.
             permission (str): The type of permission ('read', 'write', 'all').
-            namespaces (Optional[Union[List[str], str]]): Optional namespaces for permission scoping.
+            keyspaces (Optional[Union[List[str], str]]): Optional keyspaces for permission scoping.
 
         Returns:
             bool
@@ -124,12 +124,12 @@ class Engine:
             raise ValueError(f"Invalid permission: {permission}. Valid permissions are: {self.VALID_PERMISSIONS}")
 
         command = ['revoke-from', "owner", owner, "permission", permission, "store", self.store]
-        if namespaces:
-            command.append("namespaces")
-            if isinstance(namespaces, str):
-                command.append(namespaces)
+        if keyspaces:
+            command.append("keyspaces")
+            if isinstance(keyspaces, str):
+                command.append(keyspaces)
             else:
-                command.extend(namespaces)
+                command.extend(keyspaces)
 
         return await self._execute_query(command)
 

@@ -17,7 +17,7 @@ async def send_data(host: str, port: int, query: bytes) -> Any:
         asyncio.TimeoutError: If the operation exceeds the time limit.
         ConnectionRefusedError: If the server refuses the connection.
     """
-    CHUNK_SIZE = 1024 * 1024  # 1MB
+    CHUNK_SIZE = 1024 * 256  # 256 KB
 
     try:
         reader, writer = await asyncio.open_connection(host, port)

@@ -1,4 +1,4 @@
-from ..store_classes.kv import generic_kv
+from ..store_classes.kv import generic_kv, inmemory_kv
 
 class Store:
     """
@@ -17,7 +17,7 @@ class Store:
         Persistent: A subclass for a persistent data store, which persists data 
                     across sessions or server restarts.
     """
-    class InMemory(generic_kv):
+    class InMemory(generic_kv, inmemory_kv):
         """
         Represents an in-memory data store. This store is volatile and does not 
         persist data after the program ends. It is ideal for temporary storage or 
@@ -30,7 +30,7 @@ class Store:
         Methods:
             __init__: Initializes the in-memory store, inheriting from `generic_kv`.
         """
-        persistent = False
+        # persistent = False
         distributed = False
 
         def __init__(self, *args, **kwargs):
@@ -45,7 +45,7 @@ class Store:
             """
             super().__init__(*args, **kwargs)
 
-        class Distributed(generic_kv):
+        class Distributed(generic_kv, inmemory_kv):
             """
             Represents a distributed in-memory data store. This store does not 
             persist data, but it is distributed across multiple nodes or systems.
@@ -58,7 +58,7 @@ class Store:
                 __init__: Initializes the distributed in-memory store, inheriting 
                           from `generic_kv`.
             """
-            persistent = False
+            # persistent = False
             distributed = True
 
             def __init__(self, *args, **kwargs):
