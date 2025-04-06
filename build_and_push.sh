@@ -2,7 +2,7 @@
 
 # Configuration
 PACKAGE_NAME="montycat"
-VERSION="0.1.32"
+VERSION="0.1.35"
 # Define multiple source directories and their files
 declare -A SOURCE_DIRS
 SOURCE_DIRS["montycat/core"]="utils.py"      # Space-separated list of files
