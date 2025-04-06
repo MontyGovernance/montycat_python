@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='montycat',
-    version='0.1.34',
+    version='0.1.35',
     description='A Python client for MontyCat, NoSQL store utilizing Data Mesh architecture.',
     packages=find_packages(),
     zip_safe=False,
@@ -11,7 +11,8 @@ setup(
     author='MontyGovernance',
     author_email='eugene.and.monty@gmail.com',
     package_data={
-        'montycat.store_functions': ['*.pyc'],        'montycat.core': ['*.pyc']
+        'montycat.store_functions': ['*.pyc'],        
+        'montycat.core': ['*.pyc']
     },
     install_requires=['orjson', 'xxhash', 'asyncio'],
     classifiers=[
