@@ -34,10 +34,6 @@ check_prerequisites() {
             python3 -m pip install --upgrade pip
             python3 -m pip install --user twine
         fi
-        # if ! python3 -c "import twine" >/dev/null 2>&1; then
-        #     echo "Error: Failed to install twine"
-        #     exit 1
-        # fi
         echo "Successfully installed twine"
     fi
 }
