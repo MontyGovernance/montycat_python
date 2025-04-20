@@ -191,7 +191,7 @@ class generic_kv:
         Returns:
             The value associated with the key or custom key. Class 'str' if the get operation failed.
         """
-        if len(custom_key) > 0:
+        if custom_key and len(custom_key) > 0:
             key = convert_custom_key(custom_key)
 
         if not key:
@@ -233,7 +233,7 @@ class generic_kv:
             bool | str: Returns a boolean indicating success (True) or failure (False),
                         or a string message if the deletion was unsuccessful.
         """
-        if len(custom_key) > 0:
+        if custom_key and len(custom_key) > 0:
             key = convert_custom_key(custom_key)
         #custom key should be string
 
@@ -264,7 +264,7 @@ class generic_kv:
                         or a string message if the update was unsuccessful.
         """
 
-        if len(custom_key) > 0:
+        if custom_key and len(custom_key) > 0:
             key = convert_custom_key(custom_key)
 
         if not filters:
@@ -387,6 +387,10 @@ class generic_kv:
         Raises:
             ValueError: If neither `bulk_keys_values` nor `bulk_custom_keys_values` is provided.
         """
+        
+        if not bulk_keys_values:
+            raise ValueError("No key-value pairs provided for update.")
+        
         if len(bulk_custom_keys_values) > 0:
             bulk_custom_keys_values = convert_custom_keys_values(bulk_custom_keys_values)  # Convert custom keys and values
             bulk_keys_values = {**bulk_keys_values, **bulk_custom_keys_values}  # Merge the dictionaries
@@ -395,8 +399,7 @@ class generic_kv:
         # for k, v in bulk_keys_values.items():
         #     bulk_custom_keys_values[k] = handle_timestamps(v)
         
-        if not bulk_keys_values:
-            raise ValueError("No key-value pairs provided for update.")
+
         
         cls.command = "update_bulk"  # Set the command for bulk update
         query = convert_to_binary_query(cls, bulk_keys_values=bulk_keys_values)  # Build the query in binary format
@@ -487,7 +490,7 @@ class generic_kv:
             ValueError: If both `key` and `custom_key` are empty, as one of them 
                 is required to form a valid query.
         """
-        if len(custom_key) > 0:
+        if custom_key and len(custom_key) > 0:
             key = convert_custom_key(custom_key)
 
         if not key:
