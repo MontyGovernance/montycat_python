@@ -1,7 +1,7 @@
 import orjson, asyncio
 from typing import Any
 
-async def send_data(host: str, port: int, query: bytes) -> Any:
+async def send_data(host: str, port: int, query: bytes, callback=None) -> Any:
     """
     Sends data asynchronously to a remote server and handles the response.
 
@@ -17,31 +17,36 @@ async def send_data(host: str, port: int, query: bytes) -> Any:
         asyncio.TimeoutError: If the operation exceeds the time limit.
         ConnectionRefusedError: If the server refuses the connection.
     """
-    CHUNK_SIZE = 1024 * 256  # 256 KB
-
+    CHUNK_SIZE = 1024 * 256 # 256 KB
     try:
         reader, writer = await asyncio.open_connection(host, port)
         writer.write(query + b"\n")
         await writer.drain()
 
         data = bytearray()
-        while True:
-            chunk = await asyncio.wait_for(reader.read(CHUNK_SIZE), timeout=120)
-            if not chunk or b"\n" in chunk:
+        if b"subscribe" in query:
+            while True:
+                chunk = await asyncio.wait_for(reader.read(CHUNK_SIZE), timeout=120)
+                if not chunk:
+                    break
                 data.extend(chunk)
-                break
-            data.extend(chunk)
-
-        writer.close()
-        await writer.wait_closed()
-
-        response = data.decode().strip()
-        return recursive_parse_orjson(response)
-
-    except (asyncio.TimeoutError, ConnectionRefusedError) as e:
-        return str(e)
+                if b"\n" in chunk:
+                    response = data.decode().strip()
+                    if callback:
+                        callback(response)
+                    data.clear()
+        else:
+            while True:
+                chunk = await asyncio.wait_for(reader.read(CHUNK_SIZE), timeout=120)
+                if not chunk or b"\n" in chunk:
+                    data.extend(chunk)
+                    break
+                data.extend(chunk)
+            writer.close()
+            await writer.wait_closed()
+            return recursive_parse_orjson(data.decode().strip())
     except Exception as e:
-        return f"An unexpected error occurred: {e}"
+        return f"Error: {e}"
 
 def recursive_parse_orjson(data):
    """

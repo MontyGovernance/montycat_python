@@ -187,7 +187,6 @@ def convert_to_binary_query(
         "bulk_keys_values": {k: normalize_bools(str(v)) for k, v in bulk_keys_values.items()},
         "search_criteria": normalize_bools(str(search_criteria)),
         "with_pointers": with_pointers,
-        # "snapshots_rate": snapshots_rate,
     }
         
     return orjson.dumps(query_dict)
@@ -219,6 +218,13 @@ def handle_limit(limit: Union[list, int]) -> dict:
     if isinstance(limit, list):
         if len(limit) == 2:
             limit_instance.start, limit_instance.stop = limit
+
+            if limit_instance.start < 0 or limit_instance.stop < 0 \
+            or not isinstance(limit_instance.start, int) \
+            or not isinstance(limit_instance.stop, int) \
+            or limit_instance.start > limit_instance.stop:
+                raise ValueError("Limit should be a list with two positive integers (start, stop) where start less than stop.")
+
         elif len(limit) == 0:
             limit_instance.start, limit_instance.stop = 0, 0
         else:

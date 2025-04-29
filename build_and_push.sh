@@ -2,11 +2,7 @@
 
 # Configuration
 PACKAGE_NAME="montycat"
-VERSION="0.1.35"
-# Define multiple source directories and their files
-declare -A SOURCE_DIRS
-SOURCE_DIRS["montycat/core"]="utils.py"      # Space-separated list of files
-SOURCE_DIRS["montycat/store_functions"]="store_generic_functions.py"           # Add more directories as needed
+VERSION="0.1.40"
 PYPI_TOKEN="${PYPI_TOKEN:-}"
 
 # Exit on any error
@@ -38,75 +34,9 @@ check_prerequisites() {
     fi
 }
 
-# Compile multiple Python files to .pyc across multiple directories
-compile_file() {
-    echo "Compiling Python files across multiple directories..."
-    
-    if [ ${#SOURCE_DIRS[@]} -eq 0 ]; then
-        echo "Error: No source directories specified for compilation"
-        exit 1
-    fi
-
-    for DIR in "${!SOURCE_DIRS[@]}"; do
-        # Convert space-separated file list to array
-        IFS=' ' read -r -a FILES <<< "${SOURCE_DIRS[$DIR]}"
-        
-        if [ ! -d "$DIR" ]; then
-            echo "Warning: Directory $DIR not found, skipping..."
-            continue
-        fi
-
-        for FILE in "${FILES[@]}"; do
-            if [ ! -f "$DIR/$FILE" ]; then
-                echo "Warning: File $DIR/$FILE not found, skipping..."
-                continue
-            fi
-
-            echo "Compiling $DIR/$FILE..."
-            python3 -m py_compile "$DIR/$FILE"
-
-            PYCACHE_DIR="$DIR/__pycache__"
-            PYC_FILE=$(find "$PYCACHE_DIR" -name "$(basename "$FILE" .py)*.pyc" | head -n 1)
-            if [ -z "$PYC_FILE" ]; then
-                echo "Error: Could not find compiled .pyc file for $FILE in $DIR"
-                exit 1
-            fi
-
-            DEST_PYC="$DIR/$(basename "$PYC_FILE")"
-            mv "$PYC_FILE" "$DEST_PYC"
-            echo "Moved $PYC_FILE to $DEST_PYC"
-
-            rm "$DIR/$FILE"
-            echo "Removed $DIR/$FILE"
-        done
-    done
-}
-
-# Clean up __pycache__ across all directories
-clean_pycache() {
-    for DIR in "${!SOURCE_DIRS[@]}"; do
-        PYCACHE_DIR="$DIR/__pycache__"
-        if [ -d "$PYCACHE_DIR" ]; then
-            rm -rf "$PYCACHE_DIR"
-            echo "Cleaned up $PYCACHE_DIR"
-        fi
-    done
-}
-
-# Update setup.py to include .pyc files from all directories
+# Update setup.py without package_data
 update_setup() {
     echo "Updating setup.py..."
-    
-    # Build package_data dynamically
-    PACKAGE_DATA=""
-    for DIR in "${!SOURCE_DIRS[@]}"; do
-        # Convert directory path to package notation (replace / with .)
-        PACKAGE_PATH="${DIR//\//.}"
-        PACKAGE_DATA+="        '$PACKAGE_PATH': ['*.pyc'],"
-    done
-    # Remove trailing comma from the last entry
-    PACKAGE_DATA="${PACKAGE_DATA%,}"
-
     cat > setup.py <<EOF
 from setuptools import setup, find_packages
 
@@ -120,10 +50,7 @@ setup(
     long_description_content_type='text/markdown',
     author='MontyGovernance',
     author_email='eugene.and.monty@gmail.com',
-    package_data={
-$PACKAGE_DATA
-    },
-    install_requires=['orjson', 'xxhash', 'asyncio'],
+    install_requires=['orjson', 'xxhash'],
     classifiers=[
         'Programming Language :: Python :: 3',
         'License :: OSI Approved :: MIT License',
@@ -132,7 +59,7 @@ $PACKAGE_DATA
     python_requires='>=3.9',
 )
 EOF
-    echo "Updated setup.py to include .pyc files from all directories"
+    echo "Updated setup.py"
 }
 
 # Build and push to PyPI
@@ -160,8 +87,6 @@ build_and_push() {
 main() {
     CI_DEPLOY="${CI_DEPLOY:-false}"  # Default to false unless set by CI
     check_prerequisites
-    compile_file
-    clean_pycache
     update_setup
     build_and_push
 }
