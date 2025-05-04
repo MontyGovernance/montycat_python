@@ -35,7 +35,6 @@ def convert_custom_keys(keys: list) -> list:
 
 def handle_pointers_for_update(value: dict) -> dict:
     for k, v in value.items():
-        # print(v)
         if isinstance(v, Pointer):
             value[k] = v.serialize()
     return value

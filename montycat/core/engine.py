@@ -16,7 +16,7 @@ class Engine:
     """
     VALID_PERMISSIONS = {'read', 'write', 'all'}
 
-    def __init__(self, host: str, port: int, username: str, password: str, store: str) -> None:
+    def __init__(self, host: str, port: int, username: str, password: str, store: Union[str, None] = None) -> None:
         """
         Initializes the Engine with the given connection parameters.
 
@@ -32,6 +32,41 @@ class Engine:
         self.username = username
         self.password = password
         self.store = store
+
+    @classmethod
+    def from_uri(cls, uri: str) -> 'Engine':
+        """
+        Creates an Engine instance from a URI string in the format:
+        montycat://host/port/username/password[/store]
+
+        The store is optional. If not provided, it will be set to None.
+
+        Args:
+            uri (str): The URI string to parse.
+
+        Returns:
+            Engine: An instance of Engine with the parsed parameters.
+
+        Raises:
+            ValueError: If the URI is invalid, has incorrect format, or cannot be parsed.
+        """
+        if not uri.startswith("montycat://"):
+            raise ValueError("URI must use 'montycat://' protocol")
+        parts = uri[len("montycat://"):].split("/")
+        if len(parts) == 4:
+            host, port_str, username, password = parts
+            store = None
+        elif len(parts) == 5:
+            host, port_str, username, password, store = parts
+        else:
+            raise ValueError("Missing or extra parts in URI")
+        if any(part == "" for part in [host, port_str, username, password]):
+            raise ValueError("Host, port, username, and password must be non-empty")
+        try:
+            port = int(port_str)
+        except ValueError:
+            raise ValueError("Port must be an integer")
+        return cls(host, port, username, password, store)
 
     async def _execute_query(self, command: List[Any]) -> Any:
         """
@@ -77,7 +112,7 @@ class Engine:
             'remove-store', "store", self.store, "persistent", "y" if persistent else "n"
         ])
 
-    async def grant_to(self, owner: str, permission: Union[str, Permission], keyspaces: Optional[Union[List[str], str]] = None) -> Any:
+    async def grant_to(self, owner: str, permission: Union[str, Permission], keyspaces: Optional[Union[List[str], str, None]] = None) -> Any:
         """
         Grants specific permissions to a user for the current store.
 
@@ -142,7 +177,7 @@ class Engine:
             password (str): The password for the new owner.
 
         Returns:
-            bool.
+            bool
         """
         return await self._execute_query([
             'create-owner', "username", owner, "password", password
