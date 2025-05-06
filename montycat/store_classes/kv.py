@@ -24,7 +24,7 @@ class inmemory_kv:
 
         query = orjson.dumps({
             "raw": ["do-snapshots-for-keyspace", "store", cls.store, "keyspace", cls.keyspace, "persistent", "n"],
-            "superowner_credentials": [cls.username, cls.password]
+            "credentials": [cls.username, cls.password]
         })
 
         return await cls._run_query(query)
@@ -41,7 +41,7 @@ class inmemory_kv:
 
         query = orjson.dumps({
             "raw": ["clean-snapshots-for-keyspace", "store", cls.store, "keyspace", cls.keyspace, "persistent", "n"],
-            "superowner_credentials": [cls.username, cls.password]
+            "credentials": [cls.username, cls.password]
         })
 
         return await cls._run_query(query)
@@ -57,7 +57,7 @@ class inmemory_kv:
 
         query = orjson.dumps({
             "raw": ["stop-snapshots-for-keyspace", "store", cls.store, "keyspace", cls.keyspace, "persistent", "n"],
-            "superowner_credentials": [cls.username, cls.password]
+            "credentials": [cls.username, cls.password]
         })
 
         return await cls._run_query(query)
@@ -85,7 +85,7 @@ class generic_kv:
 
     #     query = orjson.dumps({
     #         "raw": ["do-snapshots-for-keyspace", "store", cls.store, "keyspace", cls.keyspace, "persistent", "n"],
-    #         "superowner_credentials": [cls.username, cls.password]
+    #         "credentials": [cls.username, cls.password]
     #     })
 
     #     return await cls._run_query(query)
@@ -102,7 +102,7 @@ class generic_kv:
 
     #     query = orjson.dumps({
     #         "raw": ["clean-snapshots-for-keyspace", "store", cls.store, "keyspace", cls.keyspace, "persistent", "n"],
-    #         "superowner_credentials": [cls.username, cls.password]
+    #         "credentials": [cls.username, cls.password]
     #     })
 
     #     return await cls._run_query(query)
@@ -118,7 +118,7 @@ class generic_kv:
 
     #     query = orjson.dumps({
     #         "raw": ["stop-snapshots-for-keyspace", "store", cls.store, "keyspace", cls.keyspace, "persistent", "n"],
-    #         "superowner_credentials": [cls.username, cls.password]
+    #         "credentials": [cls.username, cls.password]
     #     })
 
     #     return await cls._run_query(query)
@@ -530,7 +530,7 @@ class generic_kv:
 
         query = orjson.dumps({
             "raw": ["create-keyspace", "store", cls.store, "keyspace", cls.keyspace, "persistent", "y" if cls.persistent else "n"],
-            "superowner_credentials": [cls.username, cls.password]
+            "credentials": [cls.username, cls.password]
         })
 
         return await cls._run_query(query)
@@ -540,7 +540,7 @@ class generic_kv:
 
         query = orjson.dumps({
             "raw": ["remove-keyspace", "store", cls.store, "keyspace", cls.keyspace, "persistent", "y" if cls.persistent else "n"],
-            "superowner_credentials": [cls.username, cls.password]
+            "credentials": [cls.username, cls.password]
         })
 
         return await cls._run_query(query)

@@ -68,7 +68,7 @@ class Engine:
             raise ValueError("Port must be an integer")
         return cls(host, port, username, password, store)
 
-    async def _execute_query(self, command: List[Any]) -> Any:
+    async def _execute_query_with_credentials(self, command: List[Any]) -> Any:
         """
         Executes a command query asynchronously.
 
@@ -80,7 +80,7 @@ class Engine:
         """
         query = orjson.dumps({
             "raw": command,
-            "superowner_credentials": [self.username, self.password]
+            "credentials": [self.username, self.password]
         })
         return await send_data(self.host, self.port, query)
 
@@ -94,7 +94,7 @@ class Engine:
         Returns:
             bool
         """
-        return await self._execute_query([
+        return await self._execute_query_with_credentials([
             'create-store', "store", self.store, "persistent", "y" if persistent else "n"
         ])
 
@@ -108,7 +108,7 @@ class Engine:
         Returns:
             bool
         """
-        return await self._execute_query([
+        return await self._execute_query_with_credentials([
             'remove-store', "store", self.store, "persistent", "y" if persistent else "n"
         ])
 
@@ -138,7 +138,7 @@ class Engine:
             else:
                 command.extend(keyspaces)
 
-        return await self._execute_query(command)
+        return await self._execute_query_with_credentials(command)
 
     async def revoke_from(self, owner: str, permission: Union[str, Permission], keyspaces: Optional[Union[List[str], str]] = None) -> Any:
         """
@@ -166,7 +166,7 @@ class Engine:
             else:
                 command.extend(keyspaces)
 
-        return await self._execute_query(command)
+        return await self._execute_query_with_credentials(command)
 
     async def create_owner(self, owner: str, password: str) -> Any:
         """
@@ -179,7 +179,7 @@ class Engine:
         Returns:
             bool
         """
-        return await self._execute_query([
+        return await self._execute_query_with_credentials([
             'create-owner', "username", owner, "password", password
         ])
 
@@ -193,7 +193,7 @@ class Engine:
         Returns:
             bool
         """
-        return await self._execute_query([
+        return await self._execute_query_with_credentials([
             'remove-owner', "username", owner
         ])
 
@@ -204,4 +204,13 @@ class Engine:
         Returns:
             Any: The server's response containing the list of owners.
         """
-        return await self._execute_query(['list-owners'])
+        return await self._execute_query_with_credentials(['list-owners'])
+    
+    async def get_structure_available(self) -> Any:
+        """
+        Retrieves the structure of the current store.
+
+        Returns:
+            Any: The server's response containing the store structure.
+        """
+        return await self._execute_query_with_credentials(['get-structure-available'])
