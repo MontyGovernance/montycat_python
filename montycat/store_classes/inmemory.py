@@ -163,9 +163,8 @@ class inmemory_kv:
     @classmethod
     async def get_keys(cls):
         """
-        Args:
-            Limit: A list of two integers that determine the range of keys to retrieve.
-            Example: limit = [10, 20] will retrieve keys 10 to 20.
+        Get all keys in the store.
+        
         Returns:
             A list of keys in the store. Class 'str' if the get operation failed.
         """

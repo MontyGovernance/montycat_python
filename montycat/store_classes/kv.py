@@ -164,7 +164,7 @@ class generic_kv:
         return await cls._run_query(query)  # Execute the query and return the result
     
     @classmethod
-    async def lookup_keys_where(cls, limit: int = 0, schema: Union[str, None] = None, **filters):
+    async def lookup_keys_where(cls, limit: Union[int, list] = 0, schema: Union[str, None] = None, **filters):
         """
         Perform a lookup for keys matching the given filters with an optional limit on the number of records returned.
 
@@ -178,8 +178,8 @@ class generic_kv:
         Raises:
             ValueError: If no filters are provided.
         """
-        if not filters:  # Ensure filters are provided for the lookup
-            raise ValueError("No criteria provided for the lookup.")
+        # if not filters:  # Ensure filters are provided for the lookup
+        #     raise ValueError("No criteria provided for the lookup.")
         
         if schema:
             cls.schema = str(schema)
@@ -192,7 +192,7 @@ class generic_kv:
         return await cls._run_query(query)
     
     @classmethod
-    async def lookup_values_where(cls, limit=0, with_pointers: bool = False, schema: Union[str, None] = None, **filters):
+    async def lookup_values_where(cls, limit: Union[int, list] = 0, with_pointers: bool = False, schema: Union[str, None] = None, **filters):
         """
         Perform a lookup for values matching the given filters, with options to apply a limit and include pointer information.
 
@@ -207,8 +207,8 @@ class generic_kv:
         Raises:
             ValueError: If no filters are provided.
         """
-        if not filters: # Ensure filters are provided for the lookup
-            raise ValueError("No criteria provided for the lookup.")
+        # if not filters: # Ensure filters are provided for the lookup
+        #     raise ValueError("No criteria provided for the lookup.")
         
         if schema:
             cls.schema = str(schema)

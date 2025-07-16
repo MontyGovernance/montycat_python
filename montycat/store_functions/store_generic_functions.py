@@ -106,7 +106,6 @@ def convert_to_binary_query(
     bulk_keys: List[str] = None,
     bulk_keys_values: Dict[str, Any] = None,
     with_pointers: bool = False,
-    # snapshots_rate: Union[int, None] = None,
 ) -> bytes:
     """
     Converts parameters into a binary query format suitable for transmission.
@@ -167,6 +166,8 @@ def convert_to_binary_query(
     
     if 'schema' in value:
         cls.schema = value.pop('schema')
+
+    search_criteria = handle_timestamps(search_criteria)
     
     query_dict = {
         "schema": cls.schema,
@@ -192,7 +193,7 @@ def convert_to_binary_query(
 
 def handle_timestamps(search_criteria: dict) -> dict:
     for key, value in search_criteria.items():
-        if isinstance(value, Timestamp.before) or isinstance(value, Timestamp.after) or isinstance(value, Timestamp.range) or isinstance(value, Timestamp):
+        if isinstance(value, Timestamp):
             search_criteria[key] = value.serialize()
     return search_criteria
 
