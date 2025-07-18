@@ -56,41 +56,39 @@ def convert_custom_keys_values(keys_values: dict) -> dict:
     """
     return {convert_custom_key(key): value for key, value in keys_values.items()}
 
-def modify_pointers(value: dict):
+def modify_pointers(value: dict) -> dict:
     """
-    Processes and modifies the dictionary by converting all 'pointers' (Pointer type) entries into 
-    a consolidated 'pointers' dictionary and all 'timestamps' (TImestamp type) entries into a 
-    'timestamps' dictionary. The function validates that each pointer is in the 
-    correct format, and ensures that timestamps are valid strings.
+    Modifies the pointers in the given value dictionary to ensure they are in the correct format.
     
     Args:
-        value (dict): The dictionary that may contain multiple fields
+        value (dict): The dictionary containing pointers to be modified.
     
     Returns:
-        dict: The modified dictionary containing two additional fields:
-            - 'pointers': A dictionary of all the '_pointer' fields converted to a structured format.
-            - 'timestamps': A dictionary of all the '_timestamp' fields stored as strings.
+        dict: The modified dictionary with pointers in the correct format.
     
     Raises:
-        ValueError: If a '_pointer' entry is not a list of two elements (keyspace, key), 
-                    or if a '_timestamp' value is not a string.
-    
-    This function ensures that all pointer values are correctly processed and stored in the 
-    'pointers' field, and all timestamp values are correctly stored in the 'timestamps' field.
+        ValueError: If there is an error processing the pointers.
     """
     try:
-        for key in list(value.keys()):
-            if key == "pointers":
-                for k, v in value[key].items():
-                    keyspace, raw_key = v
-                    if isinstance(raw_key, str) and raw_key.isdigit() or isinstance(raw_key, int):
-                        processed_key = str(raw_key)
-                    else:
-                        processed_key = convert_custom_key(raw_key)
-                    value[key][k] = [keyspace, processed_key]
+
+
+
+        for k, v in value.items():
+            if isinstance(v, Pointer):
+                value[k] = {"keyspace": v.keyspace, "key": v.key}
+
+        if "pointers" in value and isinstance(value["pointers"], dict):
+            for k, v in value["pointers"].items():
+                keyspace, raw_key = v
+                if isinstance(raw_key, int) or (isinstance(raw_key, str) and raw_key.isdigit()):
+                    processed_key = str(raw_key)
+                else:
+                    processed_key = convert_custom_key(raw_key)
+                value["pointers"][k] = [keyspace, processed_key]
 
     except Exception as e:
         raise ValueError(f"Error processing pointers: {e}")
+    
     return value
 
 def normalize_bools(s: str) -> str:
@@ -136,7 +134,7 @@ def convert_to_binary_query(
     
     if value:
         value = modify_pointers(value)
-    
+
     if bulk_values:
         schemas = []
         for item in bulk_values:
@@ -168,6 +166,7 @@ def convert_to_binary_query(
         cls.schema = value.pop('schema')
 
     search_criteria = handle_timestamps(search_criteria)
+    value = handle_timestamps(value)
     
     query_dict = {
         "schema": cls.schema,
