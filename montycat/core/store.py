@@ -80,6 +80,8 @@ class Store:
         Attributes:
             persistent (bool): Always True for persistent stores.
             distributed (bool): Always False for the basic persistent store.
+            cache (Union[int, None]): Optional cache size for the store. Should be setup in MB. If parameter was not set default value (10 MB) will be used.
+            compression (bool): Indicates whether data compression is enabled. Default is False.
 
         Methods:
             __init__: Initializes the persistent store, inheriting from `generic_kv`.

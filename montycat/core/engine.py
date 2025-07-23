@@ -95,9 +95,9 @@ class Engine:
             bool
         """
         return await self._execute_query_with_credentials([
-            'create-store', "store", self.store, "persistent", "y" if persistent else "n"
+            'create-store', "store", self.store, "persistent", "y" if persistent else "n",
         ])
-
+    
     async def remove_store(self, persistent: bool = False) -> Any:
         """
         Removes an existing data store from the server.

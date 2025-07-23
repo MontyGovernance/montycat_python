@@ -279,16 +279,6 @@ class generic_kv:
         cls.store = engine.store
 
     @classmethod  
-    async def create_keyspace(cls):
-
-        query = orjson.dumps({
-            "raw": ["create-keyspace", "store", cls.store, "keyspace", cls.keyspace, "persistent", "y" if cls.persistent else "n"],
-            "credentials": [cls.username, cls.password]
-        })
-
-        return await cls._run_query(query)
-    
-    @classmethod  
     async def remove_keyspace(cls):
 
         query = orjson.dumps({

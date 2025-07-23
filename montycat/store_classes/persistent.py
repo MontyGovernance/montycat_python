@@ -1,9 +1,13 @@
 from ..core.engine import send_data
 from ..store_functions.store_generic_functions import convert_to_binary_query, convert_custom_key, handle_limit
 from typing import Union
+import orjson
 
 class persistent_kv:
+
     persistent: bool = True
+    cache: Union[int, None] = None
+    compression: bool = False
 
     @classmethod
     async def _run_query(cls, query: str):
@@ -125,4 +129,30 @@ class persistent_kv:
         cls.command = "get_keys"
 
         query = convert_to_binary_query(cls)
+        return await cls._run_query(query)
+    
+    @classmethod  
+    async def create_keyspace(cls):
+
+        query = orjson.dumps({
+            "raw": ["create-keyspace", "store", cls.store, "keyspace", cls.keyspace, "persistent", "y", "cache", cls.cache if cls.cache else None, "compression", "y" if cls.compression else "n"],
+            "credentials": [cls.username, cls.password]
+        })
+
+        return await cls._run_query(query)
+    
+    @classmethod
+    async def update_cache_and_compression(cls):
+        """
+        Updates the cache size and compression settings for the current store.
+
+        Returns:
+            bool
+        """
+
+        query = orjson.dumps({
+            "raw": ['update-cache-compression', "store", cls.store, "keyspace", cls.keyspace, "persistent", "y", "cache", cls.cache if cls.cache else None, "compression", "y" if cls.compression else "n"],
+            "credentials": [cls.username, cls.password]
+        })
+
         return await cls._run_query(query)
