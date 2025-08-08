@@ -132,9 +132,9 @@ class inmemory_kv:
             key = convert_custom_key(custom_key)
 
         if not filters:
-            raise ValueError("No filters provided for update.")
+            raise ValueError("No filters provided")
         if not key:
-            raise ValueError("No key provided for update.")
+            raise ValueError("No key provided")
         
         cls.command = "update_value"
 

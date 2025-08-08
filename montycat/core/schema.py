@@ -82,7 +82,7 @@ class Schema(metaclass=SchemaMetaclass):
         for attribute in self.__dict__:
             if attribute not in defined_fields and not attribute.startswith('_'):
                 raise ValueError(f"Unexpected field '{attribute}' found in the instance.")
-    
+            
     def validate_types(self):
         """
         Validate the types of all fields against their type hints.

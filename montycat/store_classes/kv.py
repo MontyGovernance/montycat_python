@@ -1,8 +1,9 @@
 from ..core.engine import Engine, send_data
+from ..core.tools import Pointer, Timestamp
 from ..store_functions.store_generic_functions import \
     handle_limit, convert_to_binary_query, convert_custom_key, \
     convert_custom_keys, convert_custom_keys_values
-from typing import Union
+from typing import Union #, get_args, get_origin
 import orjson
 
 class generic_kv:
@@ -14,6 +15,56 @@ class generic_kv:
     @classmethod
     async def _run_query(cls, query: str):
         return await send_data(cls.host, cls.port, query)
+    
+    @classmethod
+    async def enforce_schema(cls, schema):
+        """
+        Enforce a specific schema for the store operations.
+        
+        Args:
+            schema: The schema class to enforce
+
+        Returns:
+            bytes: JSON-encoded query for schema enforcement
+
+        Raises:
+            ValueError: If no schema is provided
+            TypeError: If unsupported field types are encountered
+        """
+        if not schema:
+            raise ValueError("No schema provided for enforcement")
+
+        def parse_type(field_type):            
+            if field_type == str:
+                return "String"
+            elif field_type == int:
+                return "Integer"
+            elif field_type == float:
+                return "Float"
+            elif field_type == bool:
+                return "Boolean"
+            elif field_type == list:
+                return "Array"
+            elif field_type == dict:
+                return "Object"
+            elif field_type == Pointer:
+                return "Pointer"
+            elif field_type == Timestamp:
+                return "Timestamp"
+            else:
+                raise TypeError(f"Unsupported field type: {field_type}")
+
+        schema_types = {}
+        for field, field_type in schema.__annotations__.items():
+            schema_types[field] = parse_type(field_type)
+
+        query = orjson.dumps({
+            "raw": ["enforce-schema", "store", cls.store, "keyspace", cls.keyspace, 
+                   "persistent", "y" if cls.persistent else "n", "schema_name", str(schema), "schema_content", schema_types],
+            "credentials": [cls.username, cls.password]
+        })
+
+        return cls._run_query(query)
         
     @classmethod
     async def get_value(cls, key: Union[str, None] = None, custom_key: Union[str, None] = None, with_pointers: bool = False):
@@ -30,7 +81,7 @@ class generic_kv:
             key = convert_custom_key(custom_key)
 
         if not key:
-            raise ValueError("No key provided for retrieval.")
+            raise ValueError("No key provided")
         
         cls.command = "get_value"
 
@@ -57,7 +108,7 @@ class generic_kv:
             key = convert_custom_key(custom_key)
 
         if not key:
-            raise ValueError("No key provided for deletion.")
+            raise ValueError("No key provided")
         
         cls.command = "delete_key"  # Set the command type for the query
 
@@ -247,7 +298,7 @@ class generic_kv:
             key = convert_custom_key(custom_key)
 
         if not key:
-            raise ValueError("No key provided for retrieval.")
+            raise ValueError("No key provided")
 
         cls.command = "list_all_depending_keys"
 
