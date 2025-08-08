@@ -60,7 +60,7 @@ class generic_kv:
 
         query = orjson.dumps({
             "raw": ["enforce-schema", "store", cls.store, "keyspace", cls.keyspace, 
-                   "persistent", "y" if cls.persistent else "n", "schema_name", str(schema), "schema_content", schema_types],
+                   "persistent", "y" if cls.persistent else "n", "schema_name", str(schema), "schema_content", str(schema_types)],
             "credentials": [cls.username, cls.password]
         })
 
