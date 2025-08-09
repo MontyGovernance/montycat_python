@@ -65,6 +65,28 @@ class generic_kv:
         })
 
         return cls._run_query(query)
+
+    @classmethod
+    async def remove_enforced_schema(cls, schema):
+        """
+        Remove an enforced schema from the store.
+        
+        Args:
+            schema: The name of the schema to remove. If None, no schema is removed.
+
+        Returns:
+            bytes: JSON-encoded query for removing the enforced schema
+        """
+        if not schema:
+            raise ValueError("No schema provided for removal")
+
+        query = orjson.dumps({
+            "raw": ["remove-enforced-schema", "store", cls.store, "keyspace", cls.keyspace, 
+                   "persistent", "y" if cls.persistent else "n", "schema_name", str(schema)],
+            "credentials": [cls.username, cls.password]
+        })
+
+        return await cls._run_query(query)
         
     @classmethod
     async def get_value(cls, key: Union[str, None] = None, custom_key: Union[str, None] = None, with_pointers: bool = False):
