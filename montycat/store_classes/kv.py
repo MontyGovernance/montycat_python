@@ -64,7 +64,7 @@ class generic_kv:
             "credentials": [cls.username, cls.password]
         })
 
-        return cls._run_query(query)
+        return await cls._run_query(query)
 
     @classmethod
     async def remove_enforced_schema(cls, schema):

@@ -2,7 +2,7 @@
 
 # Configuration
 PACKAGE_NAME="montycat"
-VERSION="0.1.42"
+VERSION="0.1.43"
 PYPI_TOKEN="${PYPI_TOKEN:-}"
 
 # Exit on any error

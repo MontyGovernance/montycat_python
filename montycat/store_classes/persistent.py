@@ -135,7 +135,7 @@ class persistent_kv:
     async def create_keyspace(cls):
 
         query = orjson.dumps({
-            "raw": ["create-keyspace", "store", cls.store, "keyspace", cls.keyspace, "persistent", "y", "cache", cls.cache if cls.cache else None, "compression", "y" if cls.compression else "n"],
+            "raw": ["create-keyspace", "store", cls.store, "keyspace", cls.keyspace, "persistent", "y", "cache", cls.cache if cls.cache else "0", "compression", "y" if cls.compression else "n"],
             "credentials": [cls.username, cls.password]
         })
 
@@ -151,7 +151,7 @@ class persistent_kv:
         """
 
         query = orjson.dumps({
-            "raw": ['update-cache-compression', "store", cls.store, "keyspace", cls.keyspace, "persistent", "y", "cache", cls.cache if cls.cache else None, "compression", "y" if cls.compression else "n"],
+            "raw": ['update-cache-compression', "store", cls.store, "keyspace", cls.keyspace, "persistent", "y", "cache", cls.cache if cls.cache else "0", "compression", "y" if cls.compression else "n"],
             "credentials": [cls.username, cls.password]
         })
 
