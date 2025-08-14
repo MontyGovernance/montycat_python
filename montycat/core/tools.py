@@ -29,7 +29,7 @@ class Pointer:
 
     def serialize(self):
         """Serialize the pointer to a dictionary."""
-        return {"keyspace": self.keyspace, "key": self.key}
+        return [self.keyspace, self.key]#{"keyspace": self.keyspace, "key": self.key}
 
 class Limit:
     """A class for pagination limits."""

@@ -38,7 +38,7 @@ class generic_kv:
             if field_type == str:
                 return "String"
             elif field_type == int:
-                return "Integer"
+                return "Number"
             elif field_type == float:
                 return "Float"
             elif field_type == bool:

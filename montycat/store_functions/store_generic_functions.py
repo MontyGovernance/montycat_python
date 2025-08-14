@@ -165,8 +165,8 @@ def convert_to_binary_query(
     if 'schema' in value:
         cls.schema = value.pop('schema')
 
-    search_criteria = handle_timestamps(search_criteria)
-    value = handle_timestamps(value)
+    search_criteria = handle_timestamps_and_pointers(search_criteria)
+    value = handle_timestamps_and_pointers(value)
     
     query_dict = {
         "schema": cls.schema,
@@ -190,11 +190,22 @@ def convert_to_binary_query(
         
     return orjson.dumps(query_dict)
 
-def handle_timestamps(search_criteria: dict) -> dict:
+def handle_timestamps_and_pointers(search_criteria: dict) -> dict:
+    pointers = {}
+    result = {}
+
     for key, value in search_criteria.items():
         if isinstance(value, Timestamp):
-            search_criteria[key] = value.serialize()
-    return search_criteria
+            result[key] = value.serialize()
+        elif isinstance(value, Pointer):
+            pointers[key] = value.serialize()
+        else:
+            result[key] = value
+
+    if pointers:
+        result['pointers'] = pointers
+
+    return result
 
 def handle_limit(limit: Union[list, int]) -> dict:
     """
