@@ -75,7 +75,7 @@ def modify_pointers(value: dict) -> dict:
 
         for k, v in value.items():
             if isinstance(v, Pointer):
-                value[k] = {"keyspace": v.keyspace, "key": v.key}
+                value[k] = [v.keyspace, v.key]#{"keyspace": v.keyspace, "key": v.key}
 
         if "pointers" in value and isinstance(value["pointers"], dict):
             for k, v in value["pointers"].items():
