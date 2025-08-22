@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='montycat',
-    version='0.1.43',
+    version='0.1.44',
     description='A Python client for MontyCat, NoSQL store utilizing Data Mesh architecture.',
     packages=find_packages(),
     zip_safe=False,

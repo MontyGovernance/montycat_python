@@ -84,7 +84,7 @@ class Engine:
         })
         return await send_data(self.host, self.port, query)
 
-    async def create_store(self, persistent: bool = False) -> Any:
+    async def create_store(self) -> Any:
         """
         Creates a new data store on the server.
 
@@ -95,10 +95,10 @@ class Engine:
             bool
         """
         return await self._execute_query_with_credentials([
-            'create-store', "store", self.store, "persistent", "y" if persistent else "n",
+            'create-store', "store", self.store
         ])
     
-    async def remove_store(self, persistent: bool = False) -> Any:
+    async def remove_store(self) -> Any:
         """
         Removes an existing data store from the server.
 
@@ -109,7 +109,7 @@ class Engine:
             bool
         """
         return await self._execute_query_with_credentials([
-            'remove-store', "store", self.store, "persistent", "y" if persistent else "n"
+            'remove-store', "store", self.store
         ])
 
     async def grant_to(self, owner: str, permission: Union[str, Permission], keyspaces: Optional[Union[List[str], str, None]] = None) -> Any:
