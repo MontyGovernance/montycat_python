@@ -368,7 +368,7 @@ class generic_kv:
         return await cls._run_query(query)
 
     @classmethod
-    def show_store_properties(cls):
+    def show_properties(cls):
         """
         Displays the properties of the store associated with the provided class settings.
         

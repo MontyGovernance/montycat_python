@@ -1,5 +1,6 @@
 import orjson
 from typing import Union, List, Optional, Any
+from urllib.parse import urlparse
 from .tools import Permission
 from .utils import send_data
 
@@ -37,7 +38,7 @@ class Engine:
     def from_uri(cls, uri: str) -> 'Engine':
         """
         Creates an Engine instance from a URI string in the format:
-        montycat://host/port/username/password[/store]
+        montycat://username:password@host:port[/store]
 
         The store is optional. If not provided, it will be set to None.
 
@@ -52,21 +53,24 @@ class Engine:
         """
         if not uri.startswith("montycat://"):
             raise ValueError("URI must use 'montycat://' protocol")
-        parts = uri[len("montycat://"):].split("/")
-        if len(parts) == 4:
-            host, port_str, username, password = parts
-            store = None
-        elif len(parts) == 5:
-            host, port_str, username, password, store = parts
-        else:
-            raise ValueError("Missing or extra parts in URI")
-        if any(part == "" for part in [host, port_str, username, password]):
-            raise ValueError("Host, port, username, and password must be non-empty")
-        try:
-            port = int(port_str)
-        except ValueError:
-            raise ValueError("Port must be an integer")
-        return cls(host, port, username, password, store)
+
+        parsed = urlparse(uri)
+
+        if not parsed.username or not parsed.password:
+            raise ValueError("Username and password must be provided")
+        if not parsed.hostname or not parsed.port:
+            raise ValueError("Host and port must be provided")
+
+        # Optional store
+        store = parsed.path[1:] if parsed.path and len(parsed.path) > 1 else None
+
+        return cls(
+            host=parsed.hostname,
+            port=parsed.port,
+            username=parsed.username,
+            password=parsed.password,
+            store=store
+        )
 
     async def _execute_query_with_credentials(self, command: List[Any]) -> Any:
         """
