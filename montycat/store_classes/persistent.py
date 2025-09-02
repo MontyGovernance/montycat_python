@@ -23,13 +23,13 @@ class persistent_kv:
         """
         if not custom_key:
             raise ValueError("No custom key provided for insertion.")
-        
+
         custom_key_converted = convert_custom_key(custom_key)
         cls.command = "insert_custom_key"
 
         query = convert_to_binary_query(cls, key=custom_key_converted)
         return await cls._run_query(query)
-    
+
     @classmethod
     async def insert_custom_key_value(cls, custom_key: str, value: dict):
         """
@@ -38,7 +38,7 @@ class persistent_kv:
             value: A Python class / dict to insert into the store.
         Returns:
             True if the insert operation was successful. Class 'str' if the insert operation failed.
-            
+
         """
         if not value:
             raise ValueError("No value provided for insertion.")
@@ -50,7 +50,7 @@ class persistent_kv:
 
         query = convert_to_binary_query(cls, key=custom_key_converted, value=value)
         return await cls._run_query(query)
-    
+
     @classmethod
     async def insert_value(cls, value: dict):
         """
@@ -61,12 +61,12 @@ class persistent_kv:
         """
         if not value:
             raise ValueError("No value provided for insertion.")
-        
+
         cls.command = "insert_value"
 
         query = convert_to_binary_query(cls, value=value)
         return await cls._run_query(query)
-    
+
     @classmethod
     async def update_value(cls, key: Union[str, None] = None, custom_key: Union[str, None] = None, **filters):
         """
@@ -93,7 +93,7 @@ class persistent_kv:
             raise ValueError("No filters provided")
         if not key:
             raise ValueError("No key provided")
-        
+
         cls.command = "update_value"
 
         query = convert_to_binary_query(cls, key=key, value=filters)  # Convert the key and filters into a binary query format
@@ -101,9 +101,9 @@ class persistent_kv:
 
     @classmethod
     async def insert_bulk(cls, bulk_values: list):
-        """       
+        """
         Args:
-            bulk_values: A list of Python objects to insert into the store.            
+            bulk_values: A list of Python objects to insert into the store.
         Returns:
             True if the bulk insert operation was successful.
             List of values that were not inserted.
@@ -111,11 +111,11 @@ class persistent_kv:
 
         if not bulk_values:
             raise ValueError("No values provided for bulk insertion.")
-        
+
         cls.command = "insert_bulk"
         query = convert_to_binary_query(cls, bulk_values=bulk_values)
         return await cls._run_query(query)
-    
+
     @classmethod
     async def get_keys(cls, limit: Union[list, int] = []):
         """
@@ -130,17 +130,25 @@ class persistent_kv:
 
         query = convert_to_binary_query(cls)
         return await cls._run_query(query)
-    
-    @classmethod  
+
+    @classmethod
     async def create_keyspace(cls):
 
         query = orjson.dumps({
-            "raw": ["create-keyspace", "store", cls.store, "keyspace", cls.keyspace, "persistent", "y", "cache", cls.cache if cls.cache else "0", "compression", "y" if cls.compression else "n"],
+            "raw": [
+                "create-keyspace",
+                "store", cls.store,
+                "keyspace", cls.keyspace,
+                "persistent", "y",
+                "distributed", "y" if cls.distributed else "n",
+                "cache", cls.cache if cls.cache else "0",
+                "compression", "y" if cls.compression else "n"
+                ],
             "credentials": [cls.username, cls.password]
         })
 
         return await cls._run_query(query)
-    
+
     @classmethod
     async def update_cache_and_compression(cls):
         """
@@ -150,8 +158,17 @@ class persistent_kv:
             bool
         """
 
+        if not cls.persistent:
+            raise ValueError("Cache and compression settings can only be updated for persistent keyspaces.")
+
         query = orjson.dumps({
-            "raw": ['update-cache-compression', "store", cls.store, "keyspace", cls.keyspace, "persistent", "y", "cache", cls.cache if cls.cache else "0", "compression", "y" if cls.compression else "n"],
+            "raw": [
+                'update-cache-compression',
+                "store", cls.store,
+                "keyspace", cls.keyspace,
+                "cache", cls.cache if cls.cache else "0",
+                "compression", "y" if cls.compression else "n"
+            ],
             "credentials": [cls.username, cls.password]
         })
 

@@ -15,12 +15,12 @@ class generic_kv:
     @classmethod
     async def _run_query(cls, query: str):
         return await send_data(cls.host, cls.port, query)
-    
+
     @classmethod
     async def enforce_schema(cls, schema):
         """
         Enforce a specific schema for the store operations.
-        
+
         Args:
             schema: The schema class to enforce
 
@@ -34,7 +34,7 @@ class generic_kv:
         if not schema:
             raise ValueError("No schema provided for enforcement")
 
-        def parse_type(field_type):            
+        def parse_type(field_type):
             if field_type == str:
                 return "String"
             elif field_type == int:
@@ -59,8 +59,13 @@ class generic_kv:
             schema_types[field] = parse_type(field_type)
 
         query = orjson.dumps({
-            "raw": ["enforce-schema", "store", cls.store, "keyspace", cls.keyspace, 
-                   "persistent", "y" if cls.persistent else "n", "schema_name", str(schema), "schema_content", str(schema_types)],
+            "raw": [
+                    "enforce-schema",
+                    "store", cls.store,
+                    "keyspace", cls.keyspace,
+                    "persistent", "y" if cls.persistent else "n",
+                    "schema_name", str(schema),
+                    "schema_content", str(schema_types)],
             "credentials": [cls.username, cls.password]
         })
 
@@ -70,7 +75,7 @@ class generic_kv:
     async def remove_enforced_schema(cls, schema):
         """
         Remove an enforced schema from the store.
-        
+
         Args:
             schema: The name of the schema to remove. If None, no schema is removed.
 
@@ -81,13 +86,19 @@ class generic_kv:
             raise ValueError("No schema provided for removal")
 
         query = orjson.dumps({
-            "raw": ["remove-enforced-schema", "store", cls.store, "keyspace", cls.keyspace, 
-                   "persistent", "y" if cls.persistent else "n", "schema_name", str(schema)],
+            "raw": [
+                    "remove-enforced-schema",
+                    "store", cls.store,
+                    "keyspace", cls.keyspace,
+                    "persistent", "y" if cls.persistent else "n",
+                    "distributed", "y" if cls.distributed else "n",
+                    "schema_name", str(schema)
+                ],
             "credentials": [cls.username, cls.password]
         })
 
         return await cls._run_query(query)
-        
+
     @classmethod
     async def get_value(cls, key: Union[str, None] = None, custom_key: Union[str, None] = None, with_pointers: bool = False):
 
@@ -104,12 +115,12 @@ class generic_kv:
 
         if not key:
             raise ValueError("No key provided")
-        
+
         cls.command = "get_value"
 
         query = convert_to_binary_query(cls, key=key, with_pointers=with_pointers)
         return await cls._run_query(query)
-    
+
     @classmethod
     async def delete_key(cls, key: Union[str, None] = None, custom_key: Union[str, None] = None):
         """
@@ -131,12 +142,12 @@ class generic_kv:
 
         if not key:
             raise ValueError("No key provided")
-        
+
         cls.command = "delete_key"  # Set the command type for the query
 
         query = convert_to_binary_query(cls, key=key)  # Convert the key into a binary query format
         return await cls._run_query(query)  # Run the query and return the result
-    
+
     @classmethod
     async def delete_bulk(cls, bulk_keys: list = [], bulk_custom_keys: list = []):
         """
@@ -153,7 +164,7 @@ class generic_kv:
         Returns:
             bool | str: Returns a boolean indicating whether the bulk deletion was successful (True) or not (False).
                         It may also return a string message in case of an error or failure.
-        
+
         Raises:
             ValueError: If both `bulk_keys` and `bulk_custom_keys` are empty.
         """
@@ -163,11 +174,11 @@ class generic_kv:
 
         if not bulk_keys:  # Ensure at least one key exists for the operation
             raise ValueError("No keys provided for deletion.")
-        
+
         cls.command = "delete_bulk"  # Set the command for bulk deletion
         query = convert_to_binary_query(cls, bulk_keys=bulk_keys)  # Construct the query in binary format
         return await cls._run_query(query)  # Execute the query and return the result
-    
+
     @classmethod
     async def get_bulk(cls, bulk_keys: list = [], bulk_custom_keys: list = [], limit: list = [], with_pointers: bool = False):
         """
@@ -188,22 +199,22 @@ class generic_kv:
         Returns:
             dict | str: Returns a dictionary of keys and their associated values if successful, or a string 
                         message if the retrieval fails or there is an error.
-        
+
         Raises:
             ValueError: If both `bulk_keys` and `bulk_custom_keys` are empty.
         """
         if len(bulk_custom_keys) > 0:
             bulk_custom_keys = convert_custom_keys(bulk_custom_keys)  # Convert custom keys if provided
             bulk_keys += bulk_custom_keys
-        
+
         if not bulk_keys:
             raise ValueError("No keys provided for retrieval.")
-        
+
         cls.command = "get_bulk"
         cls.limit_output = handle_limit(limit)
         query = convert_to_binary_query(cls, bulk_keys=bulk_keys, with_pointers=with_pointers)
         return await cls._run_query(query)
-    
+
     @classmethod
     async def update_bulk(cls, bulk_keys_values: dict = {}, bulk_custom_keys_values: dict = {}):
         """
@@ -220,14 +231,14 @@ class generic_kv:
         Returns:
             bool | str: Returns a boolean indicating success (True) or failure (False), or a string error message 
                         if the update operation fails.
-        
+
         Raises:
             ValueError: If neither `bulk_keys_values` nor `bulk_custom_keys_values` is provided.
         """
-        
+
         if not bulk_keys_values:
             raise ValueError("No key-value pairs provided for update.")
-        
+
         if len(bulk_custom_keys_values) > 0:
             bulk_custom_keys_values = convert_custom_keys_values(bulk_custom_keys_values)  # Convert custom keys and values
             bulk_keys_values = {**bulk_keys_values, **bulk_custom_keys_values}  # Merge the dictionaries
@@ -235,7 +246,7 @@ class generic_kv:
         cls.command = "update_bulk"  # Set the command for bulk update
         query = convert_to_binary_query(cls, bulk_keys_values=bulk_keys_values)  # Build the query in binary format
         return await cls._run_query(query)  # Execute the query and return the result
-    
+
     @classmethod
     async def lookup_keys_where(cls, limit: Union[int, list] = 0, schema: Union[str, None] = None, **filters):
         """
@@ -247,23 +258,23 @@ class generic_kv:
 
         Returns:
             dict | str: A dictionary of matching keys and their associated values, or a string error message if the query fails.
-        
+
         Raises:
             ValueError: If no filters are provided.
         """
         # if not filters:  # Ensure filters are provided for the lookup
         #     raise ValueError("No criteria provided for the lookup.")
-        
+
         if schema:
             cls.schema = str(schema)
-        else: 
+        else:
             cls.schema = None
-        
+
         cls.command = "lookup_keys"
         cls.limit_output = handle_limit(limit)
         query = convert_to_binary_query(cls, search_criteria=filters)
         return await cls._run_query(query)
-    
+
     @classmethod
     async def lookup_values_where(cls, limit: Union[int, list] = 0, with_pointers: bool = False, schema: Union[str, None] = None, **filters):
         """
@@ -276,20 +287,20 @@ class generic_kv:
 
         Returns:
             dict | str: A dictionary of matching values and their associated keys, or a string error message if the query fails.
-        
+
         Raises:
             ValueError: If no filters are provided.
         """
         # if not filters: # Ensure filters are provided for the lookup
         #     raise ValueError("No criteria provided for the lookup.")
-        
+
         if schema:
             cls.schema = str(schema)
-        else: 
+        else:
             cls.schema = None
 
         cls.command = "lookup_values"
-        cls.limit_output = handle_limit(limit) 
+        cls.limit_output = handle_limit(limit)
         query = convert_to_binary_query(cls, search_criteria=filters, with_pointers=with_pointers)
         return await cls._run_query(query)
 
@@ -326,22 +337,22 @@ class generic_kv:
 
         query = convert_to_binary_query(cls, key=key)
         return await cls._run_query(query)
-    
+
     @classmethod
     async def get_len(cls):
         cls.command = "get_len"
         query = convert_to_binary_query(cls)
         return await cls._run_query(query)
-    
+
     @classmethod
     def connect_engine(cls, engine: Engine) -> None:
         """
         Establishes a connection to the specified engine, setting the necessary connection details.
-        
+
         Args:
             cls (type): The class that will hold the connection information.
             engine (Engine): An instance of the Engine class containing connection details.
-        
+
         This function updates the class with connection attributes such as username, 
         password, host, port, and store name.
         """
@@ -351,16 +362,21 @@ class generic_kv:
         cls.port = engine.port
         cls.store = engine.store
 
-    @classmethod  
+    @classmethod
     async def remove_keyspace(cls):
 
         query = orjson.dumps({
-            "raw": ["remove-keyspace", "store", cls.store, "keyspace", cls.keyspace, "persistent", "y" if cls.persistent else "n"],
+            "raw": [
+                    "remove-keyspace",
+                    "store", cls.store,
+                    "keyspace", cls.keyspace,
+                    "persistent", "y" if cls.persistent else "n",
+                ],
             "credentials": [cls.username, cls.password]
         })
 
         return await cls._run_query(query)
-    
+
     @classmethod
     async def list_all_schemas_in_keyspace(cls):
         cls.command = "list_all_schemas_in_keyspace"
@@ -371,10 +387,10 @@ class generic_kv:
     def show_properties(cls):
         """
         Displays the properties of the store associated with the provided class settings.
-        
+
         Args:
             cls (type): The class containing the configuration details for the store.
-        
+
         This function sets the class to perform a "show_properties" command and sends 
         a query to retrieve the store's properties.
         """
