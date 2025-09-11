@@ -100,7 +100,7 @@ class generic_kv:
         return await cls._run_query(query)
 
     @classmethod
-    async def get_value(cls, key: Union[str, None] = None, custom_key: Union[str, None] = None, with_pointers: bool = False):
+    async def get_value(cls, key: Union[str, None] = None, custom_key: Union[str, None] = None, with_pointers: bool = False, key_included: bool = False, pointers_metadata: bool = False):
 
         """
         Args:
@@ -110,6 +110,9 @@ class generic_kv:
         Returns:
             The value associated with the key or custom key. Class 'str' if the get operation failed.
         """
+        if pointers_metadata and with_pointers:
+            raise ValueError("You select both pointers value and pointers metadata. Choose one")
+
         if custom_key and len(custom_key) > 0:
             key = convert_custom_key(custom_key)
 
@@ -118,7 +121,7 @@ class generic_kv:
 
         cls.command = "get_value"
 
-        query = convert_to_binary_query(cls, key=key, with_pointers=with_pointers)
+        query = convert_to_binary_query(cls, key=key, with_pointers=with_pointers, key_included=key_included, pointers_metadata=pointers_metadata)
         return await cls._run_query(query)
 
     @classmethod
@@ -167,6 +170,7 @@ class generic_kv:
 
         Raises:
             ValueError: If both `bulk_keys` and `bulk_custom_keys` are empty.
+            ValueError: If both `pointers_metadata` and `with_pointers` are True.
         """
         if len(bulk_custom_keys) > 0:
             bulk_custom_keys = convert_custom_keys(bulk_custom_keys)
@@ -180,7 +184,7 @@ class generic_kv:
         return await cls._run_query(query)  # Execute the query and return the result
 
     @classmethod
-    async def get_bulk(cls, bulk_keys: list = [], bulk_custom_keys: list = [], limit: list = [], with_pointers: bool = False):
+    async def get_bulk(cls, bulk_keys: list = [], bulk_custom_keys: list = [], limit: list = [], with_pointers: bool = False, key_included: bool = False, pointers_metadata: bool = False):
         """
         Retrieve multiple keys in bulk. Custom keys can be converted and added to the bulk retrieval list.
         Additionally, a limit on the number of records to retrieve can be applied, and whether to include pointers 
@@ -202,7 +206,12 @@ class generic_kv:
 
         Raises:
             ValueError: If both `bulk_keys` and `bulk_custom_keys` are empty.
+            ValueError: If both `pointers_metadata` and `with_pointers` are True.
         """
+
+        if pointers_metadata and with_pointers:
+            raise ValueError("You select both pointers value and pointers metadata. Choose one")
+
         if len(bulk_custom_keys) > 0:
             bulk_custom_keys = convert_custom_keys(bulk_custom_keys)  # Convert custom keys if provided
             bulk_keys += bulk_custom_keys
@@ -212,7 +221,7 @@ class generic_kv:
 
         cls.command = "get_bulk"
         cls.limit_output = handle_limit(limit)
-        query = convert_to_binary_query(cls, bulk_keys=bulk_keys, with_pointers=with_pointers)
+        query = convert_to_binary_query(cls, bulk_keys=bulk_keys, with_pointers=with_pointers, key_included=key_included, pointers_metadata=pointers_metadata)
         return await cls._run_query(query)
 
     @classmethod
@@ -276,7 +285,7 @@ class generic_kv:
         return await cls._run_query(query)
 
     @classmethod
-    async def lookup_values_where(cls, limit: Union[int, list] = 0, with_pointers: bool = False, schema: Union[str, None] = None, **filters):
+    async def lookup_values_where(cls, limit: Union[int, list] = 0, with_pointers: bool = False, key_included: bool = False, pointers_metadata: bool = False, schema: Union[str, None] = None, **filters):
         """
         Perform a lookup for values matching the given filters, with options to apply a limit and include pointer information.
 
@@ -294,6 +303,9 @@ class generic_kv:
         # if not filters: # Ensure filters are provided for the lookup
         #     raise ValueError("No criteria provided for the lookup.")
 
+        if pointers_metadata and with_pointers:
+            raise ValueError("You select both pointers value and pointers metadata. Choose one")
+
         if schema:
             cls.schema = str(schema)
         else:
@@ -301,7 +313,7 @@ class generic_kv:
 
         cls.command = "lookup_values"
         cls.limit_output = handle_limit(limit)
-        query = convert_to_binary_query(cls, search_criteria=filters, with_pointers=with_pointers)
+        query = convert_to_binary_query(cls, search_criteria=filters, with_pointers=with_pointers, key_included=key_included, pointers_metadata=pointers_metadata)
         return await cls._run_query(query)
 
     @classmethod

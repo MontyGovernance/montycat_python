@@ -6,13 +6,13 @@ from typing import Type, Dict, List, Union, Any
 def convert_custom_key(key: Union[int, str]) -> int:
     """
     Converts a custom key (either an integer or string) into a hash value using xxHash.
-    
+
     Args:
         key (int | str): The custom key to be hashed.
-    
+
     Returns:
         int: The xxHash digest of the provided key as an integer.
-    
+
     This function ensures that any input key, whether integer or string, is consistently 
     hashed into a unique integer for use as a custom key in further queries.
     """
@@ -21,13 +21,13 @@ def convert_custom_key(key: Union[int, str]) -> int:
 def convert_custom_keys(keys: list) -> list:
     """
     Converts a list of custom keys into their hashed equivalents.
-    
+
     Args:
         keys (list): A list of custom keys to be hashed.
-    
+
     Returns:
         list: A list of hashed keys as integers.
-    
+
     This function maps over the provided list of keys and applies `convert_custom_key` 
     to each one to ensure they are converted to hashed integers.
     """
@@ -43,14 +43,14 @@ def convert_custom_keys_values(keys_values: dict) -> dict:
     """
     Converts a dictionary of custom keys and their corresponding values into a new 
     dictionary with hashed keys.
-    
+
     Args:
         keys_values (dict): A dictionary where the keys are custom keys (either 
                              integers or strings) and the values are associated values.
-    
+
     Returns:
         dict: A dictionary where the custom keys have been hashed into integers.
-    
+
     This function maps over the dictionary and applies `convert_custom_key` to each 
     key while leaving the corresponding value unchanged.
     """
@@ -59,13 +59,13 @@ def convert_custom_keys_values(keys_values: dict) -> dict:
 def modify_pointers(value: dict) -> dict:
     """
     Modifies the pointers in the given value dictionary to ensure they are in the correct format.
-    
+
     Args:
         value (dict): The dictionary containing pointers to be modified.
-    
+
     Returns:
         dict: The modified dictionary with pointers in the correct format.
-    
+
     Raises:
         ValueError: If there is an error processing the pointers.
     """
@@ -88,7 +88,7 @@ def modify_pointers(value: dict) -> dict:
 
     except Exception as e:
         raise ValueError(f"Error processing pointers: {e}")
-    
+
     return value
 
 def normalize_bools(s: str) -> str:
@@ -104,10 +104,14 @@ def convert_to_binary_query(
     bulk_keys: List[str] = None,
     bulk_keys_values: Dict[str, Any] = None,
     with_pointers: bool = False,
+    volumes: List[int] = [],
+    latest_volume: bool = False,
+    key_included: bool = False,
+    pointers_metadata: bool = False,
 ) -> bytes:
     """
     Converts parameters into a binary query format suitable for transmission.
-    
+
     Args:
         cls: Query class containing connection details and command settings
         key: Single key for the query
@@ -118,10 +122,10 @@ def convert_to_binary_query(
         bulk_keys: List of keys for bulk operations
         bulk_keys_values: Dictionary of keys and values for bulk operations
         with_pointers: Flag to include pointers
-    
+
     Returns:
         bytes: Binary-encoded query in appropriate format
-        
+
     Raises:
         ValueError: If bulk values contain multiple schemas
     """
@@ -131,7 +135,7 @@ def convert_to_binary_query(
     bulk_values = bulk_values or []
     bulk_keys = bulk_keys or []
     bulk_keys_values = bulk_keys_values or {}
-    
+
     if value:
         value = modify_pointers(value)
 
@@ -142,32 +146,32 @@ def convert_to_binary_query(
                 schemas.extend([item['schema']])
             else:
                 schemas.extend([None])
-        
+
         unique_schemas = set(schemas)
         if len(unique_schemas) > 1:
             raise ValueError("Bulk values should fit only one schema")
-        
+
         cls.schema = schemas[0] if schemas else None
         bulk_values = [
             str(modify_pointers({k: v for k, v in item.items() if k != 'schema'}))
             for item in bulk_values
         ]
-    
+
     if bulk_keys_values:
         bulk_keys_values = {
-            k: str(modify_pointers(v)) 
+            k: str(modify_pointers(v))
             for k, v in bulk_keys_values.items()
         }
 
     if bulk_keys:
         bulk_keys = [str(k) for k in bulk_keys]
-    
+
     if 'schema' in value:
         cls.schema = value.pop('schema')
 
     search_criteria = handle_timestamps_and_pointers(search_criteria)
     value = handle_timestamps_and_pointers(value)
-    
+
     query_dict = {
         "schema": cls.schema,
         "username": cls.username,
@@ -186,8 +190,12 @@ def convert_to_binary_query(
         "bulk_keys_values": {k: normalize_bools(str(v)) for k, v in bulk_keys_values.items()},
         "search_criteria": normalize_bools(str(search_criteria)),
         "with_pointers": with_pointers,
+        "volumes": volumes,
+        "latest_volume": latest_volume,
+        "key_included": key_included,
+        "pointers_metadata": pointers_metadata,
     }
-        
+
     return orjson.dumps(query_dict)
 
 def handle_timestamps_and_pointers(search_criteria: dict) -> dict:

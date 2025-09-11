@@ -9,7 +9,7 @@ class inmemory_kv:
     @classmethod
     async def _run_query(cls, query: str):
         return await send_data(cls.host, cls.port, query)
-    
+
     @classmethod
     async def do_snaphots_for_keyspace(cls):
         """
@@ -22,15 +22,15 @@ class inmemory_kv:
 
         query = orjson.dumps({
             "raw": [
-                "do-snapshots-for-keyspace", 
-                "store", cls.store, 
-                "keyspace", cls.keyspace, 
+                "do-snapshots-for-keyspace",
+                "store", cls.store,
+                "keyspace", cls.keyspace,
                 ],
             "credentials": [cls.username, cls.password]
         })
 
         return await cls._run_query(query)
-    
+
     @classmethod
     async def clean_snapshots_for_keyspace(cls):
         """
@@ -182,16 +182,20 @@ class inmemory_kv:
         return await cls._run_query(query)
 
     @classmethod
-    async def get_keys(cls):
+    async def get_keys(cls, volumes: list = [], latest_volume: bool = False):
         """
         Get all keys in the store.
 
         Returns:
             A list of keys in the store. Class 'str' if the get operation failed.
         """
+
+        if latest_volume and len(volumes) > 0:
+            raise ValueError("Select either latest volume or volumes list, not both.")
+
         cls.command = "get_keys"
 
-        query = convert_to_binary_query(cls)
+        query = convert_to_binary_query(cls, volumes=volumes, latest_volume=latest_volume)
         return await cls._run_query(query)
 
     @classmethod

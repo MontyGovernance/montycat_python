@@ -117,7 +117,7 @@ class persistent_kv:
         return await cls._run_query(query)
 
     @classmethod
-    async def get_keys(cls, limit: Union[list, int] = []):
+    async def get_keys(cls, limit: Union[list, int] = [], volumes: list = [], latest_volume: bool = False):
         """
         Args:
             Limit: A list of two integers that determine the range of keys to retrieve.
@@ -125,10 +125,14 @@ class persistent_kv:
         Returns:
             A list of keys in the store. Class 'str' if the get operation failed.
         """
+
+        if latest_volume and len(volumes) > 0:
+            raise ValueError("Select either latest volume or volumes list, not both.")
+
         cls.limit_output = handle_limit(limit)
         cls.command = "get_keys"
 
-        query = convert_to_binary_query(cls)
+        query = convert_to_binary_query(cls, volumes=volumes, latest_volume=latest_volume)
         return await cls._run_query(query)
 
     @classmethod
