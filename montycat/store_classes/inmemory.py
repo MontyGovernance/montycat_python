@@ -6,9 +6,9 @@ import orjson
 class inmemory_kv:
     persistent: bool = False
 
-    @classmethod
-    async def _run_query(cls, query: str):
-        return await send_data(cls.host, cls.port, query)
+    # @classmethod
+    # async def _run_query(cls, query: str):
+    #     return await send_data(cls.host, cls.port, query)
 
     @classmethod
     async def do_snaphots_for_keyspace(cls):

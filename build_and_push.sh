@@ -2,7 +2,7 @@
 
 # Configuration
 PACKAGE_NAME="montycat"
-VERSION="0.1.45"
+VERSION="0.1.46"
 PYPI_TOKEN="${PYPI_TOKEN:-}"
 
 # Exit on any error
@@ -43,7 +43,7 @@ from setuptools import setup, find_packages
 setup(
     name='$PACKAGE_NAME',
     version='$VERSION',
-    description='A Python client for MontyCat, NoSQL store utilizing Data Mesh architecture.',
+    description='A Python client for Montycat, NoSQL database utilizing Data Mesh architecture.',
     packages=find_packages(),
     zip_safe=False,
     long_description=open('README.md', encoding='utf-8').read(),
@@ -52,10 +52,13 @@ setup(
     author_email='eugene.and.monty@gmail.com',
     install_requires=['orjson', 'xxhash'],
     classifiers=[
-        'Programming Language :: Python :: 3',
-        'License :: OSI Approved :: MIT License',
-        'Operating System :: OS Independent',
+        "Programming Language :: Python :: 3",
+        "Topic :: Database",
+        "Topic :: Software Development :: Libraries",
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: MIT License",
     ],
+    keywords="database nosql sql data-mesh cache key-value realtime montycat",
     python_requires='>=3.9',
 )
 EOF

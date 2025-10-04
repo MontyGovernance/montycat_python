@@ -1,7 +1,9 @@
 import orjson, asyncio
-from typing import Any
+from typing import Union
+import asyncio
 
-async def send_data(host: str, port: int, query: bytes, callback=None) -> Any:
+
+async def send_data(host: str, port: int, query: bytes, callback=None, stop_event: Union[asyncio.Event, None] = None):
     """
     Sends data asynchronously to a remote server and handles the response.
 
@@ -17,24 +19,34 @@ async def send_data(host: str, port: int, query: bytes, callback=None) -> Any:
         asyncio.TimeoutError: If the operation exceeds the time limit.
         ConnectionRefusedError: If the server refuses the connection.
     """
-    CHUNK_SIZE = 1024 * 256 # 256 KB
+    CHUNK_SIZE = 1024 * 256
     try:
         reader, writer = await asyncio.open_connection(host, port)
         writer.write(query + b"\n")
         await writer.drain()
 
+
         data = bytearray()
         if b"subscribe" in query:
+
             while True:
-                chunk = await asyncio.wait_for(reader.read(CHUNK_SIZE), timeout=120)
+                if stop_event and stop_event.is_set():
+                    break
+
+                chunk = await reader.read(CHUNK_SIZE)
                 if not chunk:
                     break
+
                 data.extend(chunk)
                 if b"\n" in chunk:
-                    response = data.decode().strip()
+                    response = recursive_parse_orjson(data.decode().strip())
                     if callback:
                         callback(response)
                     data.clear()
+
+            writer.close()
+            await writer.wait_closed()
+            return None  # subscription ended
         else:
             while True:
                 chunk = await asyncio.wait_for(reader.read(CHUNK_SIZE), timeout=120)

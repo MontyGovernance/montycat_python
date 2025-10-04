@@ -5,6 +5,7 @@ from ..store_functions.store_generic_functions import \
     convert_custom_keys, convert_custom_keys_values
 from typing import Union #, get_args, get_origin
 import orjson
+import asyncio
 
 class generic_kv:
     store: str = ""
@@ -13,8 +14,8 @@ class generic_kv:
     schema = None
 
     @classmethod
-    async def _run_query(cls, query: str):
-        return await send_data(cls.host, cls.port, query)
+    async def _run_query(cls, query: str, callback=None, stop_event: Union[asyncio.Event, None] = None):
+        return await send_data(cls.host, cls.port, query, callback=callback, stop_event=stop_event)
 
     @classmethod
     async def enforce_schema(cls, schema):

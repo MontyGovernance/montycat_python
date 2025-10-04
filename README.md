@@ -12,6 +12,7 @@ MontyCat is a Python client for **Montycat**, a high-performance NoSQL store des
 - 🛡️ **Memory Safety:** Implements state-of-the-art memory management practices, minimizing the risk of memory-related issues and enhancing stability.
 - 📊 **Smart Data Governance:** Integrates intelligent governance features to ensure data quality and compliance across the architecture.
 - 🤝 **Seamless Integration:** Offers a simple and intuitive API for effortless integration with Python applications, reducing time-to-value.
+- 📡 **Subscriptions** – Supports real-time subscriptions for persistent keyspaces or individual keys.
 - 📚 **Robust Documentation:** Comprehensive and user-friendly documentation to accelerate onboarding and maximize productivity.
 
 ## Installation
