@@ -1,5 +1,7 @@
 # Montycat Python Client
 
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/montycat?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/montycat)
+
 MontyCat is a Python client for **Montycat**, a high-performance NoSQL store designed with a cutting-edge Data Mesh architecture. This client empowers developers to seamlessly manage and query their data while leveraging the unparalleled flexibility and scalability offered by NoSQL databases within a decentralized data ownership paradigm.
  
 ## Key Features
