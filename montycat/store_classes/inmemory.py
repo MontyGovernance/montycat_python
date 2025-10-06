@@ -1,14 +1,9 @@
-from ..core.engine import send_data
 from ..store_functions.store_generic_functions import convert_to_binary_query, convert_custom_key
 from typing import Union
 import orjson
 
 class inmemory_kv:
     persistent: bool = False
-
-    # @classmethod
-    # async def _run_query(cls, query: str):
-    #     return await send_data(cls.host, cls.port, query)
 
     @classmethod
     async def do_snaphots_for_keyspace(cls):

@@ -1,4 +1,3 @@
-from ..core.engine import send_data
 from ..store_functions.store_generic_functions import convert_to_binary_query, convert_custom_key, handle_limit
 from typing import Union
 import orjson
@@ -10,12 +9,8 @@ class persistent_kv:
     cache: Union[int, None] = None
     compression: bool = False
 
-    # @classmethod
-    # async def _run_query(cls, query: str, callback=None):
-    #     return await send_data(cls.host, cls.port, query, callback=callback)
-
     @classmethod
-    async def subscribe(cls, key: Union[str, None]=None, custom_key: Union[str, None]=None, callback=None, stop_subscription: Union[asyncio.Event, None]=None):
+    async def subscribe(cls, key: Union[str, None]=None, custom_key: Union[str, None]=None, callback=None):
         """
         Args:
             callback: A function that will be called with the response data as it is received.
@@ -23,6 +18,7 @@ class persistent_kv:
             A generator that yields the server's responses as they are received.
         """
         cls.port += 1
+        stop_subscription = asyncio.Event()
 
         query_dict = {
             "subscribe": True,
@@ -35,7 +31,9 @@ class persistent_kv:
 
         query = orjson.dumps(query_dict)
 
-        return await cls._run_query(query, callback=callback, stop_event=stop_subscription)
+        task = asyncio.create_task(cls._run_query(query, callback=callback, stop_event=stop_subscription))
+
+        return task, stop_subscription
 
     @classmethod
     async def insert_custom_key(cls, custom_key: str):
