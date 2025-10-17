@@ -15,7 +15,8 @@ class generic_kv:
 
     @classmethod
     async def _run_query(cls, query: str, callback=None, stop_event: Union[asyncio.Event, None] = None):
-        return await send_data(cls.host, cls.port, query, callback=callback, stop_event=stop_event)
+        port = cls.port + 1 if callback else cls.port
+        return await send_data(cls.host, port, query, callback=callback, stop_event=stop_event, tls=cls.tls)
 
     @classmethod
     async def enforce_schema(cls, schema):
@@ -374,6 +375,7 @@ class generic_kv:
         cls.host = engine.host
         cls.port = engine.port
         cls.store = engine.store
+        cls.tls = engine.tls
 
     @classmethod
     async def remove_keyspace(cls):

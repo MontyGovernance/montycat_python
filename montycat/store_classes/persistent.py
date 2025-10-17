@@ -17,8 +17,11 @@ class persistent_kv:
         Returns:
             A generator that yields the server's responses as they are received.
         """
-        cls.port += 1
+
         stop_subscription = asyncio.Event()
+
+        if not callback:
+            raise ValueError("Callback function is not provided")
 
         query_dict = {
             "subscribe": True,

@@ -17,7 +17,7 @@ class Engine:
     """
     VALID_PERMISSIONS = {'read', 'write', 'all'}
 
-    def __init__(self, host: str, port: int, username: str, password: str, store: Union[str, None] = None) -> None:
+    def __init__(self, host: str, port: int, username: str, password: str, store: Union[str, None] = None, tls: bool = False) -> None:
         """
         Initializes the Engine with the given connection parameters.
 
@@ -33,6 +33,7 @@ class Engine:
         self.username = username
         self.password = password
         self.store = store
+        self.tls = tls
 
     @classmethod
     def from_uri(cls, uri: str) -> 'Engine':
@@ -86,7 +87,7 @@ class Engine:
             "raw": command,
             "credentials": [self.username, self.password]
         })
-        return await send_data(self.host, self.port, query)
+        return await send_data(self.host, self.port, query, tls=self.tls)
 
     async def create_store(self) -> Any:
         """
@@ -101,7 +102,7 @@ class Engine:
         return await self._execute_query_with_credentials([
             'create-store', "store", self.store
         ])
-    
+
     async def remove_store(self) -> Any:
         """
         Removes an existing data store from the server.
@@ -209,7 +210,7 @@ class Engine:
             Any: The server's response containing the list of owners.
         """
         return await self._execute_query_with_credentials(['list-owners'])
-    
+
     async def get_structure_available(self) -> Any:
         """
         Retrieves the structure of the current store.
@@ -217,4 +218,7 @@ class Engine:
         Returns:
             Any: The server's response containing the store structure.
         """
-        return await self._execute_query_with_credentials(['get-structure-available'])
+
+        command = ['get-structure-available', "store", self.store] if self.store else ['get-structure-available']
+
+        return await self._execute_query_with_credentials(command)

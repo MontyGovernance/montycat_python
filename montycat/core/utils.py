@@ -1,9 +1,9 @@
 import orjson, asyncio
 from typing import Union
 import asyncio
+import ssl
 
-
-async def send_data(host: str, port: int, query: bytes, callback=None, stop_event: Union[asyncio.Event, None] = None):
+async def send_data(host: str, port: int, query: bytes, callback=None, stop_event: Union[asyncio.Event, None] = None, tls=False):
     """
     Sends data asynchronously to a remote server and handles the response.
 
@@ -21,7 +21,19 @@ async def send_data(host: str, port: int, query: bytes, callback=None, stop_even
     """
     CHUNK_SIZE = 1024 * 256
     try:
-        reader, writer = await asyncio.open_connection(host, port)
+
+        if tls:
+            context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+            context.check_hostname = False
+            context.verify_mode = ssl.CERT_NONE
+        else:
+            context = None
+
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection(host, port, ssl=context),
+            timeout=10.0
+        )
+
         writer.write(query + b"\n")
         await writer.drain()
 
@@ -47,6 +59,7 @@ async def send_data(host: str, port: int, query: bytes, callback=None, stop_even
             writer.close()
             await writer.wait_closed()
             return None  # subscription ended
+
         else:
             while True:
                 chunk = await asyncio.wait_for(reader.read(CHUNK_SIZE), timeout=120)
