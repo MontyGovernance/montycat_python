@@ -1,6 +1,10 @@
 # 🐍 The official async Python client for Montycat — the Rust-powered NoSQL database built for the Data Mesh era.
 
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/montycat?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/montycat)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![PyPI Version](https://img.shields.io/pypi/v/montycat.svg)](https://pypi.org/project/montycat/)
+[![Python Version](https://img.shields.io/pypi/pyversions/montycat)](https://www.python.org/)
+[![Maintenance](https://img.shields.io/badge/maintained-yes-brightgreen.svg)]()
 
 ## What is Montycat?
 
