@@ -3,11 +3,11 @@ from enum import Enum
 class Timestamp:
     """A class for handling timestamp conditions."""
     def __init__(self, timestamp=None, start=None, end=None, after=None, before=None):
-        self.timestamp = timestamp  # Single timestamp
-        self.start = start          # Range start
-        self.end = end              # Range end
-        self.after = after          # After condition
-        self.before = before        # Before condition
+        self.timestamp = timestamp
+        self.start = start
+        self.end = end
+        self.after = after
+        self.before = before
 
     def serialize(self):
         """Serialize the timestamp based on its type."""
@@ -29,7 +29,7 @@ class Pointer:
 
     def serialize(self):
         """Serialize the pointer to a dictionary."""
-        return [self.keyspace, self.key]#{"keyspace": self.keyspace, "key": self.key}
+        return [self.keyspace, self.key]
 
 class Limit:
     """A class for pagination limits."""

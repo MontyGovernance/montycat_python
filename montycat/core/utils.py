@@ -89,9 +89,8 @@ def recursive_parse_orjson(data):
    elif isinstance(data, list):
        return [recursive_parse_orjson(element) for element in data]
    elif isinstance(data, str):
-       # Check if the string is a u128 value (you can define your own condition)
        if is_u128(data):
-           return data  # Keep u128 as a string
+           return data
        try:
            parsed_data = orjson.loads(data)
            return recursive_parse_orjson(parsed_data)

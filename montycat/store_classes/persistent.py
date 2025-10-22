@@ -121,8 +121,8 @@ class persistent_kv:
 
         cls.command = "update_value"
 
-        query = convert_to_binary_query(cls, key=key, value=filters)  # Convert the key and filters into a binary query format
-        return await cls._run_query(query)  # Run the query and return the result
+        query = convert_to_binary_query(cls, key=key, value=filters)
+        return await cls._run_query(query)
 
     @classmethod
     async def insert_bulk(cls, bulk_values: list):

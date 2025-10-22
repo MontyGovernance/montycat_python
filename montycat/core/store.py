@@ -32,7 +32,7 @@ class Keyspace:
         Methods:
             __init__: Initializes the in-memory keyspace, inheriting from `generic_kv`.
         """
-        # persistent = False
+
         distributed = False
 
         def __init__(self, *args, **kwargs):

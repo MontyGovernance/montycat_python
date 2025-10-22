@@ -75,7 +75,7 @@ def modify_pointers(value: dict) -> dict:
 
         for k, v in value.items():
             if isinstance(v, Pointer):
-                value[k] = [v.keyspace, v.key]#{"keyspace": v.keyspace, "key": v.key}
+                value[k] = [v.keyspace, v.key]
 
         if "pointers" in value and isinstance(value["pointers"], dict):
             for k, v in value["pointers"].items():
@@ -129,7 +129,7 @@ def convert_to_binary_query(
     Raises:
         ValueError: If bulk values contain multiple schemas
     """
-    # Initialize with empty defaults
+
     search_criteria = search_criteria or {}
     value = value or {}
     bulk_values = bulk_values or []

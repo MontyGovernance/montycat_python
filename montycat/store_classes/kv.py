@@ -3,7 +3,7 @@ from ..core.tools import Pointer, Timestamp
 from ..store_functions.store_generic_functions import \
     handle_limit, convert_to_binary_query, convert_custom_key, \
     convert_custom_keys, convert_custom_keys_values
-from typing import Union #, get_args, get_origin
+from typing import Union
 import orjson
 import asyncio
 
@@ -148,10 +148,10 @@ class generic_kv:
         if not key:
             raise ValueError("No key provided")
 
-        cls.command = "delete_key"  # Set the command type for the query
+        cls.command = "delete_key"
 
-        query = convert_to_binary_query(cls, key=key)  # Convert the key into a binary query format
-        return await cls._run_query(query)  # Run the query and return the result
+        query = convert_to_binary_query(cls, key=key)
+        return await cls._run_query(query)
 
     @classmethod
     async def delete_bulk(cls, bulk_keys: list = [], bulk_custom_keys: list = []):
@@ -178,12 +178,12 @@ class generic_kv:
             bulk_custom_keys = convert_custom_keys(bulk_custom_keys)
             bulk_keys += bulk_custom_keys
 
-        if not bulk_keys:  # Ensure at least one key exists for the operation
+        if not bulk_keys:
             raise ValueError("No keys provided for deletion.")
 
-        cls.command = "delete_bulk"  # Set the command for bulk deletion
-        query = convert_to_binary_query(cls, bulk_keys=bulk_keys)  # Construct the query in binary format
-        return await cls._run_query(query)  # Execute the query and return the result
+        cls.command = "delete_bulk"
+        query = convert_to_binary_query(cls, bulk_keys=bulk_keys)
+        return await cls._run_query(query)
 
     @classmethod
     async def get_bulk(cls, bulk_keys: list = [], bulk_custom_keys: list = [], limit: list = [], with_pointers: bool = False, key_included: bool = False, pointers_metadata: bool = False):
@@ -215,7 +215,7 @@ class generic_kv:
             raise ValueError("You select both pointers value and pointers metadata. Choose one")
 
         if len(bulk_custom_keys) > 0:
-            bulk_custom_keys = convert_custom_keys(bulk_custom_keys)  # Convert custom keys if provided
+            bulk_custom_keys = convert_custom_keys(bulk_custom_keys)
             bulk_keys += bulk_custom_keys
 
         if not bulk_keys:
@@ -251,12 +251,12 @@ class generic_kv:
             raise ValueError("No key-value pairs provided for update.")
 
         if len(bulk_custom_keys_values) > 0:
-            bulk_custom_keys_values = convert_custom_keys_values(bulk_custom_keys_values)  # Convert custom keys and values
-            bulk_keys_values = {**bulk_keys_values, **bulk_custom_keys_values}  # Merge the dictionaries
+            bulk_custom_keys_values = convert_custom_keys_values(bulk_custom_keys_values)
+            bulk_keys_values = {**bulk_keys_values, **bulk_custom_keys_values}
 
-        cls.command = "update_bulk"  # Set the command for bulk update
-        query = convert_to_binary_query(cls, bulk_keys_values=bulk_keys_values)  # Build the query in binary format
-        return await cls._run_query(query)  # Execute the query and return the result
+        cls.command = "update_bulk"
+        query = convert_to_binary_query(cls, bulk_keys_values=bulk_keys_values)
+        return await cls._run_query(query)
 
     @classmethod
     async def lookup_keys_where(cls, limit: Union[int, list] = 0, schema: Union[str, None] = None, **filters):
@@ -273,8 +273,6 @@ class generic_kv:
         Raises:
             ValueError: If no filters are provided.
         """
-        # if not filters:  # Ensure filters are provided for the lookup
-        #     raise ValueError("No criteria provided for the lookup.")
 
         if schema:
             cls.schema = str(schema)
@@ -302,8 +300,6 @@ class generic_kv:
         Raises:
             ValueError: If no filters are provided.
         """
-        # if not filters: # Ensure filters are provided for the lookup
-        #     raise ValueError("No criteria provided for the lookup.")
 
         if pointers_metadata and with_pointers:
             raise ValueError("You select both pointers value and pointers metadata. Choose one")
