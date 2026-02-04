@@ -90,7 +90,7 @@ class SalesSchema(Schema):
 
 class ProductionSchema(Schema):
     items: list
-    work_order: str
+    work_order: str | None
 
 async def migrate_schemas():
     await Production.enforce_schema()

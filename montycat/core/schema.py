@@ -1,18 +1,18 @@
-
+from types import UnionType
 from typing import get_origin, get_args, get_type_hints, Union
 from .tools import Pointer, Timestamp
 
 class SchemaMetaclass(type):
     """
     Metaclass for Schema classes that provides custom string representation.
-    
+
     This metaclass modifies how Schema classes are represented as strings,
     returning just the class name instead of the default representation.
     """
     def __str__(cls) -> str:
         """Return the class name as string representation."""
         return cls.__name__
-    
+
     def __repr__(cls) -> str:
         """Return the class name as official representation."""
         return cls.__name__
@@ -20,7 +20,7 @@ class SchemaMetaclass(type):
 class Schema(metaclass=SchemaMetaclass):
     """
     Base class for creating schema definitions with type validation and serialization.
-    
+
     This class provides the foundation for creating strongly-typed schema objects
     with automatic validation of fields and types. It supports features such as:
     - Automatic type checking based on type hints
@@ -29,6 +29,12 @@ class Schema(metaclass=SchemaMetaclass):
     - Special handling for Pointer and Timestamp types
     - Serialization capabilities
     """
+
+    def _is_optional(self, t):
+        origin = get_origin(t)
+        args = get_args(t)
+        return origin in (Union, UnionType) and type(None) in args
+
     def __init__(self, **kwargs):
         """
         Initialize a Schema instance with the provided field values.
@@ -51,7 +57,7 @@ class Schema(metaclass=SchemaMetaclass):
         self.validate_types()
         self.schema = self.__class__.__name__
 
-    def serialize(self):                    
+    def serialize(self):
         return self.__dict__
 
     def check_missing_fields(self, hints):
@@ -64,10 +70,13 @@ class Schema(metaclass=SchemaMetaclass):
         Raises:
             ValueError: If any required field is missing
         """
-        for attribute, _ in hints.items(): #expected_type
-            if getattr(self, attribute) is None:
+        for attribute, expected_type in hints.items():
+            value = getattr(self, attribute)
+
+            # If value is None, allow it ONLY if the type is Optional
+            if value is None and not self._is_optional(expected_type):
                 raise ValueError(f"Missing required field: '{attribute}'")
-    
+
     def check_extra_fields(self, hints):
         """
         Verify that no unexpected fields are present in the instance.
@@ -82,11 +91,11 @@ class Schema(metaclass=SchemaMetaclass):
         for attribute in self.__dict__:
             if attribute not in defined_fields and not attribute.startswith('_'):
                 raise ValueError(f"Unexpected field '{attribute}' found in the instance.")
-            
+
     def validate_types(self):
         """
         Validate the types of all fields against their type hints.
-        
+
         This method performs type checking and special handling for Pointer and
         Timestamp types, as well as handling Union types. It reorganizes Pointer
         and Timestamp fields into dedicated collections.
@@ -98,7 +107,7 @@ class Schema(metaclass=SchemaMetaclass):
         for attribute, expected_type in hints.items():
             actual_value = getattr(self, attribute)
             origin = get_origin(expected_type)
-            
+
             if expected_type is Pointer:
                 if 'pointers' not in self.__dict__:
                     self.pointers = {}
@@ -111,9 +120,9 @@ class Schema(metaclass=SchemaMetaclass):
                 self.timestamps[attribute] = actual_value.timestamp
                 delattr(self, attribute)
 
-            if origin is Union:
-                expected_types = get_args(expected_type)
-                if not isinstance(actual_value, expected_types) and actual_value is not None:
+            if origin in (Union, UnionType):
+                expected_types = tuple(t for t in get_args(expected_type) if t is not type(None))
+                if actual_value is not None and not isinstance(actual_value, expected_types):
                     raise TypeError(
                         f"Attribute '{attribute}' should be one of types {expected_types}, "
                         f"but got '{type(actual_value).__name__}'"

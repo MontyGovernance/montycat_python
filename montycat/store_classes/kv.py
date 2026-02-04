@@ -2,8 +2,9 @@ from ..core.engine import Engine, send_data
 from ..core.tools import Pointer, Timestamp
 from ..store_functions.store_generic_functions import \
     handle_limit, convert_to_binary_query, convert_custom_key, \
-    convert_custom_keys, convert_custom_keys_values
-from typing import Union
+    convert_custom_keys, convert_custom_keys_values, normalize_bools
+from typing import Union, get_args, get_origin
+from types import UnionType
 import orjson
 import asyncio
 
@@ -22,6 +23,8 @@ class generic_kv:
     async def enforce_schema(cls, schema):
         """
         Enforce a specific schema for the store operations.
+        Any field that does not match the schema will raise an error.
+        Nullable fields are supported.
 
         Args:
             schema: The schema class to enforce
@@ -37,24 +40,39 @@ class generic_kv:
             raise ValueError("No schema provided for enforcement")
 
         def parse_type(field_type):
-            if field_type == str:
-                return "String"
-            elif field_type == int:
-                return "Number"
-            elif field_type == float:
-                return "Float"
-            elif field_type == bool:
-                return "Boolean"
-            elif field_type == list:
-                return "Array"
-            elif field_type == dict:
-                return "Object"
-            elif field_type == Pointer:
-                return "Pointer"
-            elif field_type == Timestamp:
-                return "Timestamp"
+
+            nullable = False
+
+            origin = get_origin(field_type)
+            args = get_args(field_type)
+
+            if origin in (Union, UnionType) and type(None) in args:
+                nullable = True
+                field_type = next(t for t in args if t is not type(None))
+                origin = get_origin(field_type)
+                args = get_args(field_type)
+
+            if field_type is str:
+                ty = "String"
+            elif field_type in (int, float):
+                ty = "Number"
+            elif field_type is bool:
+                ty = "Boolean"
+
+            elif origin is list or field_type is list:
+                ty = "Array"
+            elif origin is dict or field_type is dict:
+                ty = "Object"
+
+            elif field_type is Pointer:
+                ty = "Pointer"
+            elif field_type is Timestamp:
+                ty = "Timestamp"
+
             else:
                 raise TypeError(f"Unsupported field type: {field_type}")
+
+            return [ty, nullable]
 
         schema_types = {}
         for field, field_type in schema.__annotations__.items():
@@ -67,7 +85,8 @@ class generic_kv:
                     "keyspace", cls.keyspace,
                     "persistent", "y" if cls.persistent else "n",
                     "schema_name", str(schema),
-                    "schema_content", str(schema_types)],
+                    "schema_content", normalize_bools(schema_types)
+                ],
             "credentials": [cls.username, cls.password]
         })
 
@@ -160,10 +179,10 @@ class generic_kv:
         to the appropriate format and then appended to the list of keys to be deleted.
 
         Args:
-            bulk_keys (list, optional): A list of keys to delete. Each key can be either an integer or a string. 
+            bulk_keys (list, optional): A list of keys to delete. Each key can be either an integer or a string.
                                         Default is an empty list.
-            bulk_custom_keys (list, optional): A list of custom keys to delete. These keys will be converted to 
-                                                the appropriate format before being included in the deletion query. 
+            bulk_custom_keys (list, optional): A list of custom keys to delete. These keys will be converted to
+                                                the appropriate format before being included in the deletion query.
                                                 Default is an empty list.
 
         Returns:
@@ -189,21 +208,21 @@ class generic_kv:
     async def get_bulk(cls, bulk_keys: list = [], bulk_custom_keys: list = [], limit: list = [], with_pointers: bool = False, key_included: bool = False, pointers_metadata: bool = False):
         """
         Retrieve multiple keys in bulk. Custom keys can be converted and added to the bulk retrieval list.
-        Additionally, a limit on the number of records to retrieve can be applied, and whether to include pointers 
+        Additionally, a limit on the number of records to retrieve can be applied, and whether to include pointers
         in the results can be specified.
 
         Args:
             bulk_keys (list, optional): A list of keys to retrieve. Each key can be either an integer or a string.
                                         Default is an empty list.
-            bulk_custom_keys (list, optional): A list of custom keys to retrieve. These keys will be converted 
+            bulk_custom_keys (list, optional): A list of custom keys to retrieve. These keys will be converted
                                                 before being included in the bulk retrieval. Default is an empty list.
-            limit (list, optional): A list defining the limit on the number of records to return. If empty, 
+            limit (list, optional): A list defining the limit on the number of records to return. If empty,
                                      no limit is applied.
             with_pointers (bool, optional): If True, the query will include pointer information with the results.
                                             Default is False.
 
         Returns:
-            dict | str: Returns a dictionary of keys and their associated values if successful, or a string 
+            dict | str: Returns a dictionary of keys and their associated values if successful, or a string
                         message if the retrieval fails or there is an error.
 
         Raises:
@@ -229,18 +248,18 @@ class generic_kv:
     @classmethod
     async def update_bulk(cls, bulk_keys_values: dict = {}, bulk_custom_keys_values: dict = {}):
         """
-        Update multiple keys in bulk with the provided new values. If custom keys are provided, 
+        Update multiple keys in bulk with the provided new values. If custom keys are provided,
         they will be converted before being applied to the bulk update.
 
         Args:
-            bulk_keys_values (dict, optional): A dictionary where the keys are the keys to be updated, 
+            bulk_keys_values (dict, optional): A dictionary where the keys are the keys to be updated,
                                                 and the values are the new values to assign. Default is an empty dictionary.
-            bulk_custom_keys_values (dict, optional): A dictionary of custom keys and their new values to be updated. 
-                                                      These custom keys will be converted before being included in the update. 
+            bulk_custom_keys_values (dict, optional): A dictionary of custom keys and their new values to be updated.
+                                                      These custom keys will be converted before being included in the update.
                                                       Default is an empty dictionary.
 
         Returns:
-            bool | str: Returns a boolean indicating success (True) or failure (False), or a string error message 
+            bool | str: Returns a boolean indicating success (True) or failure (False), or a string error message
                         if the update operation fails.
 
         Raises:
@@ -320,21 +339,21 @@ class generic_kv:
         List all keys that depend on a specified key or custom key.
 
         This class method generates a query to retrieve all keys that are dependent
-        on a given `key` or a `custom_key` if provided. It converts the key into 
+        on a given `key` or a `custom_key` if provided. It converts the key into
         the appropriate format and executes the query.
 
         Parameters:
-            key (str | int, optional): The primary key whose dependencies are to be listed. 
+            key (str | int, optional): The primary key whose dependencies are to be listed.
                 Defaults to an empty string.
-            custom_key (str, optional): A custom key that can be converted into the 
+            custom_key (str, optional): A custom key that can be converted into the
                 appropriate format. If provided, it overrides the `key` parameter.
 
         Returns:
-            Any: The result of executing the query, typically representing the 
+            Any: The result of executing the query, typically representing the
                 dependent keys.
 
         Raises:
-            ValueError: If both `key` and `custom_key` are empty, as one of them 
+            ValueError: If both `key` and `custom_key` are empty, as one of them
                 is required to form a valid query.
         """
         if custom_key and len(custom_key) > 0:
@@ -363,7 +382,7 @@ class generic_kv:
             cls (type): The class that will hold the connection information.
             engine (Engine): An instance of the Engine class containing connection details.
 
-        This function updates the class with connection attributes such as username, 
+        This function updates the class with connection attributes such as username,
         password, host, port, and store name.
         """
         cls.username = engine.username
@@ -402,7 +421,7 @@ class generic_kv:
         Args:
             cls (type): The class containing the configuration details for the store.
 
-        This function sets the class to perform a "show_properties" command and sends 
+        This function sets the class to perform a "show_properties" command and sends
         a query to retrieve the store's properties.
         """
         return cls.__dict__

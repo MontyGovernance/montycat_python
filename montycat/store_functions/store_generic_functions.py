@@ -13,7 +13,7 @@ def convert_custom_key(key: Union[int, str]) -> int:
     Returns:
         int: The xxHash digest of the provided key as an integer.
 
-    This function ensures that any input key, whether integer or string, is consistently 
+    This function ensures that any input key, whether integer or string, is consistently
     hashed into a unique integer for use as a custom key in further queries.
     """
     return str(xxhash.xxh32(str(key)).intdigest())
@@ -28,7 +28,7 @@ def convert_custom_keys(keys: list) -> list:
     Returns:
         list: A list of hashed keys as integers.
 
-    This function maps over the provided list of keys and applies `convert_custom_key` 
+    This function maps over the provided list of keys and applies `convert_custom_key`
     to each one to ensure they are converted to hashed integers.
     """
     return [convert_custom_key(key) for key in keys]
@@ -41,17 +41,17 @@ def handle_pointers_for_update(value: dict) -> dict:
 
 def convert_custom_keys_values(keys_values: dict) -> dict:
     """
-    Converts a dictionary of custom keys and their corresponding values into a new 
+    Converts a dictionary of custom keys and their corresponding values into a new
     dictionary with hashed keys.
 
     Args:
-        keys_values (dict): A dictionary where the keys are custom keys (either 
+        keys_values (dict): A dictionary where the keys are custom keys (either
                              integers or strings) and the values are associated values.
 
     Returns:
         dict: A dictionary where the custom keys have been hashed into integers.
 
-    This function maps over the dictionary and applies `convert_custom_key` to each 
+    This function maps over the dictionary and applies `convert_custom_key` to each
     key while leaving the corresponding value unchanged.
     """
     return {convert_custom_key(key): value for key, value in keys_values.items()}
@@ -91,8 +91,17 @@ def modify_pointers(value: dict) -> dict:
 
     return value
 
-def normalize_bools(s: str) -> str:
-    return s.replace("True", "true").replace("False", "false")
+def normalize_bools(s):
+    """
+    Normalize Python booleans and None in the given input by converting them to their JSON representation.
+
+    Args:
+        s: The input data containing boolean values.
+
+    Returns:
+        str: The JSON-encoded string with normalized boolean values.
+    """
+    return orjson.dumps(s).decode()
 
 def convert_to_binary_query(
     cls: Type,
@@ -182,13 +191,13 @@ def convert_to_binary_query(
         "distributed": cls.distributed,
         "limit_output": cls.limit_output,
         "key": key if key == None else str(key),
-        "value": normalize_bools(str(value)),
+        "value": normalize_bools(value),
         "command": cls.command,
         "expire": expire_sec,
         "bulk_values": [normalize_bools(v) for v in bulk_values],
         "bulk_keys": bulk_keys,
-        "bulk_keys_values": {k: normalize_bools(str(v)) for k, v in bulk_keys_values.items()},
-        "search_criteria": normalize_bools(str(search_criteria)),
+        "bulk_keys_values": {k: normalize_bools(v) for k, v in bulk_keys_values.items()},
+        "search_criteria": normalize_bools(search_criteria),
         "with_pointers": with_pointers,
         "volumes": volumes,
         "latest_volume": latest_volume,
@@ -199,6 +208,13 @@ def convert_to_binary_query(
     return orjson.dumps(query_dict)
 
 def handle_timestamps_and_pointers(search_criteria: dict) -> dict:
+    """
+    Processes the search criteria to serialize Timestamp and Pointer objects.
+    Args:
+        search_criteria (dict): The search criteria containing potential Timestamp and Pointer objects.
+    Returns:
+        dict: The processed search criteria with serialized Timestamp and Pointer objects.
+    """
     pointers = {}
     result = {}
 
@@ -218,17 +234,17 @@ def handle_timestamps_and_pointers(search_criteria: dict) -> dict:
 def handle_limit(limit: Union[list, int]) -> dict:
     """
     Processes and returns pagination limits for queries based on the provided input.
-    
+
     Args:
-        limit (list | int): The pagination limit, either a list with two values (start, stop) 
+        limit (list | int): The pagination limit, either a list with two values (start, stop)
                              or an integer representing the stop limit.
-    
+
     Returns:
         dict: A dictionary containing the pagination limits (`start` and `stop`).
-    
+
     Raises:
         ValueError: If the provided limit is neither a valid list nor a valid integer.
-    
+
     This function ensures the pagination limits are properly structured and returns
     them in a dictionary format suitable for query processing.
     """
