@@ -205,7 +205,8 @@ class generic_kv:
         return await cls._run_query(query)
 
     @classmethod
-    async def get_bulk(cls, bulk_keys: list = [], bulk_custom_keys: list = [], limit: list = [], with_pointers: bool = False, key_included: bool = False, pointers_metadata: bool = False):
+    async def get_bulk(
+        cls, bulk_keys: list = [], bulk_custom_keys: list = [], limit: list = [], with_pointers: bool = False, key_included: bool = False, pointers_metadata: bool = False, volumes: list[str] = [], latest_volume: bool = False):
         """
         Retrieve multiple keys in bulk. Custom keys can be converted and added to the bulk retrieval list.
         Additionally, a limit on the number of records to retrieve can be applied, and whether to include pointers
@@ -220,13 +221,19 @@ class generic_kv:
                                      no limit is applied.
             with_pointers (bool, optional): If True, the query will include pointer information with the results.
                                             Default is False.
+            key_included (bool, optional): If True, the query will include the keys in the results.
+                                           Default is False.
+            pointers_metadata (bool, optional): If True, the query will include metadata about pointers in the results.
+                                                Default is False.
+            volumes (list[str], optional): A list of volumes to retrieve. Default is an empty list.
+            latest_volume (bool, optional): If True, the query will retrieve the latest volume. Default is False.
 
         Returns:
             dict | str: Returns a dictionary of keys and their associated values if successful, or a string
                         message if the retrieval fails or there is an error.
 
         Raises:
-            ValueError: If both `bulk_keys` and `bulk_custom_keys` are empty.
+            ValueError: If both `bulk_keys` and `bulk_custom_keys` are empty and neither `volumes` nor `latest_volume` is specified.
             ValueError: If both `pointers_metadata` and `with_pointers` are True.
         """
 
@@ -237,12 +244,18 @@ class generic_kv:
             bulk_custom_keys = convert_custom_keys(bulk_custom_keys)
             bulk_keys += bulk_custom_keys
 
-        if not bulk_keys:
-            raise ValueError("No keys provided for retrieval.")
+        selected_options = sum([
+            bool(bulk_keys),
+            bool(volumes),
+            bool(latest_volume)
+        ])
+
+        if selected_options != 1:
+            raise ValueError("Multiple conflicting options provided. Please provide exactly one of the following: keys, volumes, or latest volume.")
 
         cls.command = "get_bulk"
         cls.limit_output = handle_limit(limit)
-        query = convert_to_binary_query(cls, bulk_keys=bulk_keys, with_pointers=with_pointers, key_included=key_included, pointers_metadata=pointers_metadata)
+        query = convert_to_binary_query(cls, bulk_keys=bulk_keys, with_pointers=with_pointers, key_included=key_included, pointers_metadata=pointers_metadata, volumes=volumes, latest_volume=latest_volume)
         return await cls._run_query(query)
 
     @classmethod

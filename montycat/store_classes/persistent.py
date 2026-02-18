@@ -99,10 +99,10 @@ class persistent_kv:
         it will be converted to the appropriate format before updating.
 
         Args:
-            key (int | str, optional): The key whose associated value needs to be updated. 
+            key (int | str, optional): The key whose associated value needs to be updated.
                                        This can either be an integer or a string. Default is an empty string,
                                        which will be ignored if custom_key is provided.
-            custom_key (str, optional): The custom key whose associated value needs to be updated. 
+            custom_key (str, optional): The custom key whose associated value needs to be updated.
                                         Default is an empty string.
             filters (dict): A dictionary of field-value pairs that need to be updated in the store.
 
@@ -142,11 +142,13 @@ class persistent_kv:
         return await cls._run_query(query)
 
     @classmethod
-    async def get_keys(cls, limit: Union[list, int] = [], volumes: list = [], latest_volume: bool = False):
+    async def get_keys(cls, limit: Union[list, int] = [], volumes: list[str] = [], latest_volume: bool = False):
         """
         Args:
             Limit: A list of two integers that determine the range of keys to retrieve.
             Example: limit = [10, 20] will retrieve keys 10 to 20.
+            volumes (list[str], optional): A list of volumes to retrieve. Default is an empty list.
+            latest_volume (bool, optional): Whether to retrieve keys from the latest volume. Default is False.
         Returns:
             A list of keys in the store. Class 'str' if the get operation failed.
         """
@@ -162,7 +164,14 @@ class persistent_kv:
 
     @classmethod
     async def create_keyspace(cls):
-
+        """
+        Creates a new keyspace in the store with the specified settings for persistence, distribution, caching, and
+        compression.
+        Returns:
+            bool: True if the keyspace was created successfully, False otherwise.
+        Raises:
+            ValueError: If the keyspace is not set to be persistent.
+        """
         query = orjson.dumps({
             "raw": [
                 "create-keyspace",
