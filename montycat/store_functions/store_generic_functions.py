@@ -71,8 +71,6 @@ def modify_pointers(value: dict) -> dict:
     """
     try:
 
-
-
         for k, v in value.items():
             if isinstance(v, Pointer):
                 value[k] = [v.keyspace, v.key]
@@ -162,13 +160,13 @@ def convert_to_binary_query(
 
         cls.schema = schemas[0] if schemas else None
         bulk_values = [
-            str(modify_pointers({k: v for k, v in item.items() if k != 'schema'}))
+            modify_pointers({k: v for k, v in item.items() if k != 'schema'})
             for item in bulk_values
         ]
 
     if bulk_keys_values:
         bulk_keys_values = {
-            k: str(modify_pointers(v))
+            k: modify_pointers(v)
             for k, v in bulk_keys_values.items()
         }
 

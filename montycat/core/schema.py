@@ -108,13 +108,13 @@ class Schema(metaclass=SchemaMetaclass):
             actual_value = getattr(self, attribute)
             origin = get_origin(expected_type)
 
-            if expected_type is Pointer:
+            if expected_type is Pointer or (origin is Union and Pointer in get_args(expected_type)) or (origin is UnionType and Pointer in get_args(expected_type)) and actual_value is not None:
                 if 'pointers' not in self.__dict__:
                     self.pointers = {}
                 self.pointers[attribute] = [actual_value.keyspace, actual_value.key]
                 delattr(self, attribute)
 
-            if expected_type is Timestamp:
+            if expected_type is Timestamp or (origin is Union and Timestamp in get_args(expected_type)) or (origin is UnionType and Timestamp in get_args(expected_type)) and actual_value is not None:
                 if 'timestamps' not in self.__dict__:
                     self.timestamps = {}
                 self.timestamps[attribute] = actual_value.timestamp
