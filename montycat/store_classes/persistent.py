@@ -153,9 +153,6 @@ class persistent_kv:
             A list of keys in the store. Class 'str' if the get operation failed.
         """
 
-        if latest_volume and len(volumes) > 0:
-            raise ValueError("Select either latest volume or volumes list, not both.")
-
         cls.limit_output = handle_limit(limit)
         cls.command = "get_keys"
 

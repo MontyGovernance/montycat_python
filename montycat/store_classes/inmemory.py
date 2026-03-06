@@ -38,15 +38,15 @@ class inmemory_kv:
 
         query = orjson.dumps({
             "raw": [
-                "clean-snapshots-for-keyspace", 
-                "store", cls.store, 
-                "keyspace", cls.keyspace, 
+                "clean-snapshots-for-keyspace",
+                "store", cls.store,
+                "keyspace", cls.keyspace,
             ],
             "credentials": [cls.username, cls.password]
         })
 
         return await cls._run_query(query)
-    
+
     @classmethod
     async def stop_snapshots_for_keyspace(cls):
         """
@@ -67,7 +67,7 @@ class inmemory_kv:
         })
 
         return await cls._run_query(query)
-    
+
     @classmethod
     async def insert_custom_key(cls, custom_key: str, expire_sec: int = 0):
         """
@@ -79,13 +79,13 @@ class inmemory_kv:
         """
         if not custom_key:
             raise ValueError("No custom key provided for insertion.")
-        
+
         custom_key_converted = convert_custom_key(custom_key)
         cls.command = "insert_custom_key"
 
         query = convert_to_binary_query(cls, key=custom_key_converted, expire_sec=expire_sec)
         return await cls._run_query(query)
-    
+
     @classmethod
     async def insert_custom_key_value(cls, custom_key: str, value: dict, expire_sec: int = 0):
         """
@@ -95,7 +95,7 @@ class inmemory_kv:
             expire_sec: The number of seconds before the inserted value expires.
         Returns:
             True if the insert operation was successful. Class 'str' if the insert operation failed.
-            
+
         """
         if not value:
             raise ValueError("No value provided for insertion.")
@@ -184,9 +184,6 @@ class inmemory_kv:
         Returns:
             A list of keys in the store. Class 'str' if the get operation failed.
         """
-
-        if latest_volume and len(volumes) > 0:
-            raise ValueError("Select either latest volume or volumes list, not both.")
 
         cls.command = "get_keys"
 

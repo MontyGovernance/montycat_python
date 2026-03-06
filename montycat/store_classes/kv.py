@@ -234,11 +234,7 @@ class generic_kv:
 
         Raises:
             ValueError: If both `bulk_keys` and `bulk_custom_keys` are empty and neither `volumes` nor `latest_volume` is specified.
-            ValueError: If both `pointers_metadata` and `with_pointers` are True.
         """
-
-        if pointers_metadata and with_pointers:
-            raise ValueError("You select both pointers value and pointers metadata. Choose one")
 
         if len(bulk_custom_keys) > 0:
             bulk_custom_keys = convert_custom_keys(bulk_custom_keys)
@@ -246,12 +242,11 @@ class generic_kv:
 
         selected_options = sum([
             bool(bulk_keys),
-            bool(volumes),
-            bool(latest_volume)
+            bool(volumes and len(volumes) > 0) or latest_volume,
         ])
 
         if selected_options != 1:
-            raise ValueError("Multiple conflicting options provided. Please provide exactly one of the following: keys, volumes, or latest volume.")
+            raise ValueError("Multiple conflicting options provided. Please provide keys or volumes/latest volume.")
 
         cls.command = "get_bulk"
         cls.limit_output = handle_limit(limit)
@@ -279,7 +274,7 @@ class generic_kv:
             ValueError: If neither `bulk_keys_values` nor `bulk_custom_keys_values` is provided.
         """
 
-        if not bulk_keys_values:
+        if not bulk_keys_values and not bulk_custom_keys_values:
             raise ValueError("No key-value pairs provided for update.")
 
         if len(bulk_custom_keys_values) > 0:
