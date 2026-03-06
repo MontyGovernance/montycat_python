@@ -185,6 +185,9 @@ class inmemory_kv:
             A list of keys in the store. Class 'str' if the get operation failed.
         """
 
+        if not latest_volume and not volumes:
+            raise ValueError("Please provide keys or volumes/latest volume.")
+
         cls.command = "get_keys"
 
         query = convert_to_binary_query(cls, volumes=volumes, latest_volume=latest_volume)
@@ -192,6 +195,12 @@ class inmemory_kv:
 
     @classmethod
     async def create_keyspace(cls):
+        """
+        Create a keyspace in the store.
+
+        Returns:
+            True if the keyspace was created successfully. Class 'str' if the keyspace creation failed.
+        """
 
         query = orjson.dumps({
             "raw": [

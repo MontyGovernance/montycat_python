@@ -153,6 +153,9 @@ class persistent_kv:
             A list of keys in the store. Class 'str' if the get operation failed.
         """
 
+        if not volumes and not latest_volume and not limit:
+            raise ValueError("Please provide keys or volumes/latest volume or limit.")
+
         cls.limit_output = handle_limit(limit)
         cls.command = "get_keys"
 

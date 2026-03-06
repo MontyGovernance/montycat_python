@@ -242,11 +242,11 @@ class generic_kv:
 
         selected_options = sum([
             bool(bulk_keys),
-            bool(volumes and len(volumes) > 0) or latest_volume,
+            bool(volumes and len(volumes) > 0) or latest_volume or bool(limit and len(limit) > 0),
         ])
 
         if selected_options != 1:
-            raise ValueError("Multiple conflicting options provided. Please provide keys or volumes/latest volume.")
+            raise ValueError("Please provide keys or volumes/latest volume or limit.")
 
         cls.command = "get_bulk"
         cls.limit_output = handle_limit(limit)
