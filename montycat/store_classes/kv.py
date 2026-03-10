@@ -234,11 +234,7 @@ class generic_kv:
 
         Raises:
             ValueError: If both `bulk_keys` and `bulk_custom_keys` are empty and neither `volumes` nor `latest_volume` is specified.
-            ValueError: If both `pointers_metadata` and `with_pointers` are True.
         """
-
-        if pointers_metadata and with_pointers:
-            raise ValueError("You select both pointers value and pointers metadata. Choose one")
 
         if len(bulk_custom_keys) > 0:
             bulk_custom_keys = convert_custom_keys(bulk_custom_keys)
@@ -246,12 +242,11 @@ class generic_kv:
 
         selected_options = sum([
             bool(bulk_keys),
-            bool(volumes),
-            bool(latest_volume)
+            bool(volumes and len(volumes) > 0) or latest_volume or bool(limit and len(limit) > 0 and (limit[0] != 0 or limit[1] != 0)),
         ])
 
         if selected_options != 1:
-            raise ValueError("Multiple conflicting options provided. Please provide exactly one of the following: keys, volumes, or latest volume.")
+            raise ValueError("Please provide keys or volumes/latest volume or limit.")
 
         cls.command = "get_bulk"
         cls.limit_output = handle_limit(limit)
@@ -279,7 +274,7 @@ class generic_kv:
             ValueError: If neither `bulk_keys_values` nor `bulk_custom_keys_values` is provided.
         """
 
-        if not bulk_keys_values:
+        if not bulk_keys_values and not bulk_custom_keys_values:
             raise ValueError("No key-value pairs provided for update.")
 
         if len(bulk_custom_keys_values) > 0:
@@ -324,6 +319,8 @@ class generic_kv:
         Args:
             limit (int, optional): The maximum number of results to return. If 0, no limit is applied. Default is 0.
             with_pointers (bool, optional): If True, the query will include pointers in the result. Default is False.
+            key_included (bool, optional): If True, the query will include the keys in the result. Default is False.
+            pointers_metadata (bool, optional): If True, the query will include metadata about the pointers. Default is False.
             filters (dict): The filtering criteria for the lookup. These are field-value pairs that the values should match.
 
         Returns:
@@ -332,9 +329,6 @@ class generic_kv:
         Raises:
             ValueError: If no filters are provided.
         """
-
-        if pointers_metadata and with_pointers:
-            raise ValueError("You select both pointers value and pointers metadata. Choose one")
 
         if schema:
             cls.schema = str(schema)
