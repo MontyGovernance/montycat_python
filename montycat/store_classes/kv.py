@@ -10,13 +10,46 @@ import asyncio
 
 class generic_kv:
     store: str = ""
-    command: str = ""
-    limit_output: dict = {}
-    schema = None
 
     @classmethod
-    async def _run_query(cls, query: str, callback=None, stop_event: Union[asyncio.Event, None] = None):
-        port = cls.port + 1 if callback else cls.port
+    async def subscribe(cls, key: Union[str, None] = None, custom_key: Union[str, None] = None, callback=None, subscription_port: Union[int, None] = None):
+        """
+        Subscribe to real-time changes for a key or the entire keyspace.
+        Works for both in-memory and persistent keyspaces.
+
+        Args:
+            key: The key to subscribe to. If None, subscribes to the entire keyspace.
+            custom_key: A custom key to subscribe to. Converted to internal format.
+            callback: A function called with response data as it is received.
+        Returns:
+            A tuple of (task, stop_event). Call stop_event.set() to stop the subscription.
+        """
+        if not callback:
+            raise ValueError("Callback function is not provided")
+
+        if key and custom_key:
+            raise ValueError("Provide either key or custom_key, not both.")
+
+        stop_subscription = asyncio.Event()
+
+        query_dict = {
+            "subscribe": True,
+            "store": cls.store,
+            "keyspace": cls.keyspace,
+            "key": convert_custom_key(custom_key) if custom_key else key,
+            "persistent": cls.persistent,
+            "username": cls.username,
+            "password": cls.password
+        }
+
+        query = orjson.dumps(query_dict)
+        task = asyncio.create_task(cls._run_query(query, callback=callback, stop_event=stop_subscription, subscription_port=subscription_port))
+
+        return task, stop_subscription
+
+    @classmethod
+    async def _run_query(cls, query: str, callback=None, stop_event: Union[asyncio.Event, None] = None, subscription_port: Union[int, None] = None):
+        port = subscription_port if subscription_port else (cls.port + 1 if callback else cls.port)
         return await send_data(cls.host, port, query, callback=callback, stop_event=stop_event, tls=cls.tls)
 
     @classmethod
@@ -131,8 +164,8 @@ class generic_kv:
         Returns:
             The value associated with the key or custom key. Class 'str' if the get operation failed.
         """
-        if pointers_metadata and with_pointers:
-            raise ValueError("You select both pointers value and pointers metadata. Choose one")
+        if key and custom_key:
+            raise ValueError("Provide either key or custom_key, not both.")
 
         if custom_key and len(custom_key) > 0:
             key = convert_custom_key(custom_key)
@@ -140,9 +173,7 @@ class generic_kv:
         if not key:
             raise ValueError("No key provided")
 
-        cls.command = "get_value"
-
-        query = convert_to_binary_query(cls, key=key, with_pointers=with_pointers, key_included=key_included, pointers_metadata=pointers_metadata)
+        query = convert_to_binary_query(cls, command="get_value", key=key, with_pointers=with_pointers, key_included=key_included, pointers_metadata=pointers_metadata)
         return await cls._run_query(query)
 
     @classmethod
@@ -161,15 +192,16 @@ class generic_kv:
             bool | str: Returns a boolean indicating success (True) or failure (False),
                         or a string message if the deletion was unsuccessful.
         """
+        if key and custom_key:
+            raise ValueError("Provide either key or custom_key, not both.")
+
         if custom_key and len(custom_key) > 0:
             key = convert_custom_key(custom_key)
 
         if not key:
             raise ValueError("No key provided")
 
-        cls.command = "delete_key"
-
-        query = convert_to_binary_query(cls, key=key)
+        query = convert_to_binary_query(cls, command="delete_key", key=key)
         return await cls._run_query(query)
 
     @classmethod
@@ -191,7 +223,6 @@ class generic_kv:
 
         Raises:
             ValueError: If both `bulk_keys` and `bulk_custom_keys` are empty.
-            ValueError: If both `pointers_metadata` and `with_pointers` are True.
         """
         if len(bulk_custom_keys) > 0:
             bulk_custom_keys = convert_custom_keys(bulk_custom_keys)
@@ -200,13 +231,12 @@ class generic_kv:
         if not bulk_keys:
             raise ValueError("No keys provided for deletion.")
 
-        cls.command = "delete_bulk"
-        query = convert_to_binary_query(cls, bulk_keys=bulk_keys)
+        query = convert_to_binary_query(cls, command="delete_bulk", bulk_keys=bulk_keys)
         return await cls._run_query(query)
 
     @classmethod
     async def get_bulk(
-        cls, bulk_keys: list = [], bulk_custom_keys: list = [], limit: list = [], with_pointers: bool = False, key_included: bool = False, pointers_metadata: bool = False, volumes: list[str] = [], latest_volume: bool = False):
+        cls, bulk_keys: list = [], bulk_custom_keys: list = [], limit: list[int] = [], with_pointers: bool = False, key_included: bool = False, pointers_metadata: bool = False, volumes: list[str] = [], latest_volume: bool = False):
         """
         Retrieve multiple keys in bulk. Custom keys can be converted and added to the bulk retrieval list.
         Additionally, a limit on the number of records to retrieve can be applied, and whether to include pointers
@@ -242,15 +272,13 @@ class generic_kv:
 
         selected_options = sum([
             bool(bulk_keys),
-            bool(volumes and len(volumes) > 0) or latest_volume or bool(limit and len(limit) > 0 and (limit[0] != 0 or limit[1] != 0)),
+            bool(volumes) or latest_volume or bool(limit and limit != [0, 0]),
         ])
 
         if selected_options != 1:
             raise ValueError("Please provide keys or volumes/latest volume or limit.")
 
-        cls.command = "get_bulk"
-        cls.limit_output = handle_limit(limit)
-        query = convert_to_binary_query(cls, bulk_keys=bulk_keys, with_pointers=with_pointers, key_included=key_included, pointers_metadata=pointers_metadata, volumes=volumes, latest_volume=latest_volume)
+        query = convert_to_binary_query(cls, command="get_bulk", limit_output=handle_limit(limit), bulk_keys=bulk_keys, with_pointers=with_pointers, key_included=key_included, pointers_metadata=pointers_metadata, volumes=volumes, latest_volume=latest_volume)
         return await cls._run_query(query)
 
     @classmethod
@@ -281,8 +309,7 @@ class generic_kv:
             bulk_custom_keys_values = convert_custom_keys_values(bulk_custom_keys_values)
             bulk_keys_values = {**bulk_keys_values, **bulk_custom_keys_values}
 
-        cls.command = "update_bulk"
-        query = convert_to_binary_query(cls, bulk_keys_values=bulk_keys_values)
+        query = convert_to_binary_query(cls, command="update_bulk", bulk_keys_values=bulk_keys_values)
         return await cls._run_query(query)
 
     @classmethod
@@ -301,14 +328,7 @@ class generic_kv:
             ValueError: If no filters are provided.
         """
 
-        if schema:
-            cls.schema = str(schema)
-        else:
-            cls.schema = None
-
-        cls.command = "lookup_keys"
-        cls.limit_output = handle_limit(limit)
-        query = convert_to_binary_query(cls, search_criteria=filters)
+        query = convert_to_binary_query(cls, command="lookup_keys", limit_output=handle_limit(limit), search_criteria=filters, schema=str(schema) if schema else None)
         return await cls._run_query(query)
 
     @classmethod
@@ -330,14 +350,7 @@ class generic_kv:
             ValueError: If no filters are provided.
         """
 
-        if schema:
-            cls.schema = str(schema)
-        else:
-            cls.schema = None
-
-        cls.command = "lookup_values"
-        cls.limit_output = handle_limit(limit)
-        query = convert_to_binary_query(cls, search_criteria=filters, with_pointers=with_pointers, key_included=key_included, pointers_metadata=pointers_metadata)
+        query = convert_to_binary_query(cls, command="lookup_values", limit_output=handle_limit(limit), search_criteria=filters, with_pointers=with_pointers, key_included=key_included, pointers_metadata=pointers_metadata, schema=str(schema) if schema else None)
         return await cls._run_query(query)
 
     @classmethod
@@ -363,21 +376,21 @@ class generic_kv:
             ValueError: If both `key` and `custom_key` are empty, as one of them
                 is required to form a valid query.
         """
+        if key and custom_key:
+            raise ValueError("Provide either key or custom_key, not both.")
+
         if custom_key and len(custom_key) > 0:
             key = convert_custom_key(custom_key)
 
         if not key:
             raise ValueError("No key provided")
 
-        cls.command = "list_all_depending_keys"
-
-        query = convert_to_binary_query(cls, key=key)
+        query = convert_to_binary_query(cls, command="list_all_depending_keys", key=key)
         return await cls._run_query(query)
 
     @classmethod
     async def get_len(cls):
-        cls.command = "get_len"
-        query = convert_to_binary_query(cls)
+        query = convert_to_binary_query(cls, command="get_len")
         return await cls._run_query(query)
 
     @classmethod
@@ -416,8 +429,7 @@ class generic_kv:
 
     @classmethod
     async def list_all_schemas_in_keyspace(cls):
-        cls.command = "list_all_schemas_in_keyspace"
-        query = convert_to_binary_query(cls)
+        query = convert_to_binary_query(cls, command="list_all_schemas_in_keyspace")
         return await cls._run_query(query)
 
     @classmethod
