@@ -226,7 +226,7 @@ class generic_kv:
         """
         if len(bulk_custom_keys) > 0:
             bulk_custom_keys = convert_custom_keys(bulk_custom_keys)
-            bulk_keys += bulk_custom_keys
+            bulk_keys = bulk_keys + bulk_custom_keys
 
         if not bulk_keys:
             raise ValueError("No keys provided for deletion.")
@@ -268,7 +268,7 @@ class generic_kv:
 
         if len(bulk_custom_keys) > 0:
             bulk_custom_keys = convert_custom_keys(bulk_custom_keys)
-            bulk_keys += bulk_custom_keys
+            bulk_keys = bulk_keys + bulk_custom_keys
 
         selected_options = sum([
             bool(bulk_keys),
