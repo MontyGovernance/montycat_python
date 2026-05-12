@@ -20,15 +20,16 @@ async def send_data(host: str, port: int, query: bytes, callback=None, stop_even
         ConnectionRefusedError: If the server refuses the connection.
     """
     CHUNK_SIZE = 1024 * 256
+
+    if tls:
+        context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+    else:
+        context = None
+
+    writer = None
     try:
-
-        if tls:
-            context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
-            context.check_hostname = False
-            context.verify_mode = ssl.CERT_NONE
-        else:
-            context = None
-
         reader, writer = await asyncio.wait_for(
             asyncio.open_connection(host, port, ssl=context),
             timeout=10.0
@@ -56,8 +57,6 @@ async def send_data(host: str, port: int, query: bytes, callback=None, stop_even
                         callback(response)
                     data.clear()
 
-            writer.close()
-            await writer.wait_closed()
             return None  # subscription ended
 
         else:
@@ -67,11 +66,23 @@ async def send_data(host: str, port: int, query: bytes, callback=None, stop_even
                     data.extend(chunk)
                     break
                 data.extend(chunk)
-            writer.close()
-            await writer.wait_closed()
             return recursive_parse_orjson(data.decode().strip())
     except Exception as e:
         return f"Error: {e}"
+    finally:
+        # Always close the connection — including on asyncio.CancelledError
+        # (which doesn't inherit from Exception), so the server-side
+        # subscription handler sees EOF and tears down its watchers. Without
+        # this, the cancelled subscription leaves the TCP socket open until
+        # GC, and the server's sled subscribers stay alive — which then
+        # deadlocks any subsequent remove_keyspace/remove_store on the same
+        # store.
+        if writer is not None:
+            try:
+                writer.close()
+                await writer.wait_closed()
+            except Exception:
+                pass
 
 def recursive_parse_orjson(data):
    """

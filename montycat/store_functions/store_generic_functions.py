@@ -103,6 +103,7 @@ def normalize_bools(s):
 
 def convert_to_binary_query(
     cls: Type,
+    command: str = "",
     key: Union[str, None] = None,
     search_criteria: Dict[str, Any] = None,
     value: Dict[str, Any] = None,
@@ -115,6 +116,8 @@ def convert_to_binary_query(
     latest_volume: bool = False,
     key_included: bool = False,
     pointers_metadata: bool = False,
+    limit_output: dict = {},
+    schema: Union[str, None] = None,
 ) -> bytes:
     """
     Converts parameters into a binary query format suitable for transmission.
@@ -158,7 +161,7 @@ def convert_to_binary_query(
         if len(unique_schemas) > 1:
             raise ValueError("Bulk values should fit only one schema")
 
-        cls.schema = schemas[0] if schemas else None
+        schema = schemas[0] if schemas else None
         bulk_values = [
             modify_pointers({k: v for k, v in item.items() if k != 'schema'})
             for item in bulk_values
@@ -174,23 +177,23 @@ def convert_to_binary_query(
         bulk_keys = [str(k) for k in bulk_keys]
 
     if 'schema' in value:
-        cls.schema = value.pop('schema')
+        schema = value.pop('schema')
 
     search_criteria = handle_timestamps_and_pointers(search_criteria)
     value = handle_timestamps_and_pointers(value)
 
     query_dict = {
-        "schema": cls.schema,
+        "schema": schema,
         "username": cls.username,
         "password": cls.password,
         "keyspace": cls.keyspace,
         "store": cls.store,
         "persistent": cls.persistent,
         "distributed": cls.distributed,
-        "limit_output": cls.limit_output,
+        "limit_output": limit_output,
         "key": key if key == None else str(key),
         "value": normalize_bools(value),
-        "command": cls.command,
+        "command": command,
         "expire": expire_sec,
         "bulk_values": [normalize_bools(v) for v in bulk_values],
         "bulk_keys": bulk_keys,

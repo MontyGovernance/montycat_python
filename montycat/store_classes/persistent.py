@@ -1,42 +1,10 @@
 from ..store_functions.store_generic_functions import convert_to_binary_query, convert_custom_key, handle_limit
 from typing import Union
 import orjson
-import asyncio
 
 class persistent_kv:
 
     persistent: bool = True
-    cache: Union[int, None] = None
-    compression: bool = False
-
-    @classmethod
-    async def subscribe(cls, key: Union[str, None]=None, custom_key: Union[str, None]=None, callback=None):
-        """
-        Args:
-            callback: A function that will be called with the response data as it is received.
-        Returns:
-            A generator that yields the server's responses as they are received.
-        """
-
-        stop_subscription = asyncio.Event()
-
-        if not callback:
-            raise ValueError("Callback function is not provided")
-
-        query_dict = {
-            "subscribe": True,
-            "store": cls.store,
-            "keyspace": cls.keyspace,
-            "key": convert_custom_key(custom_key) if custom_key else key,
-            "username": cls.username,
-            "password": cls.password
-        }
-
-        query = orjson.dumps(query_dict)
-
-        task = asyncio.create_task(cls._run_query(query, callback=callback, stop_event=stop_subscription))
-
-        return task, stop_subscription
 
     @classmethod
     async def insert_custom_key(cls, custom_key: str):
@@ -50,9 +18,7 @@ class persistent_kv:
             raise ValueError("No custom key provided for insertion.")
 
         custom_key_converted = convert_custom_key(custom_key)
-        cls.command = "insert_custom_key"
-
-        query = convert_to_binary_query(cls, key=custom_key_converted)
+        query = convert_to_binary_query(cls, command="insert_custom_key", key=custom_key_converted)
         return await cls._run_query(query)
 
     @classmethod
@@ -71,9 +37,7 @@ class persistent_kv:
             raise ValueError("No custom key provided for insertion.")
 
         custom_key_converted = convert_custom_key(custom_key)
-        cls.command = "insert_custom_key_value"
-
-        query = convert_to_binary_query(cls, key=custom_key_converted, value=value)
+        query = convert_to_binary_query(cls, command="insert_custom_key_value", key=custom_key_converted, value=value)
         return await cls._run_query(query)
 
     @classmethod
@@ -87,9 +51,7 @@ class persistent_kv:
         if not value:
             raise ValueError("No value provided for insertion.")
 
-        cls.command = "insert_value"
-
-        query = convert_to_binary_query(cls, value=value)
+        query = convert_to_binary_query(cls, command="insert_value", value=value)
         return await cls._run_query(query)
 
     @classmethod
@@ -111,6 +73,9 @@ class persistent_kv:
                         or a string message if the update was unsuccessful.
         """
 
+        if key and custom_key:
+            raise ValueError("Provide either key or custom_key, not both.")
+
         if custom_key and len(custom_key) > 0:
             key = convert_custom_key(custom_key)
 
@@ -119,9 +84,7 @@ class persistent_kv:
         if not key:
             raise ValueError("No key provided")
 
-        cls.command = "update_value"
-
-        query = convert_to_binary_query(cls, key=key, value=filters)
+        query = convert_to_binary_query(cls, command="update_value", key=key, value=filters)
         return await cls._run_query(query)
 
     @classmethod
@@ -137,40 +100,39 @@ class persistent_kv:
         if not bulk_values:
             raise ValueError("No values provided for bulk insertion.")
 
-        cls.command = "insert_bulk"
-        query = convert_to_binary_query(cls, bulk_values=bulk_values)
+        query = convert_to_binary_query(cls, command="insert_bulk", bulk_values=bulk_values)
         return await cls._run_query(query)
 
     @classmethod
-    async def get_keys(cls, limit: Union[list, int] = [], volumes: list[str] = [], latest_volume: bool = False):
+    async def get_keys(cls, limit: list[int] = [], volumes: list[str] = [], latest_volume: bool = False):
         """
         Args:
-            Limit: A list of two integers that determine the range of keys to retrieve.
-            Example: limit = [10, 20] will retrieve keys 10 to 20.
+            limit: A list of two integers [start, stop] to retrieve keys in range.
             volumes (list[str], optional): A list of volumes to retrieve. Default is an empty list.
             latest_volume (bool, optional): Whether to retrieve keys from the latest volume. Default is False.
         Returns:
             A list of keys in the store. Class 'str' if the get operation failed.
         """
 
-        if not volumes and not latest_volume and not limit and (not isinstance(limit, list) or len(limit) != 2 or (limit[0] == 0 and limit[1] == 0)):
-            raise ValueError("Please provide keys or volumes/latest volume or limit.")
+        if not volumes and not latest_volume:
+            if not limit or limit == [0, 0]:
+                raise ValueError("Please provide volumes/latest volume or limit.")
 
-        cls.limit_output = handle_limit(limit)
-        cls.command = "get_keys"
-
-        query = convert_to_binary_query(cls, volumes=volumes, latest_volume=latest_volume)
+        query = convert_to_binary_query(cls, command="get_keys", limit_output=handle_limit(limit), volumes=volumes, latest_volume=latest_volume)
         return await cls._run_query(query)
 
     @classmethod
-    async def create_keyspace(cls):
+    async def create_keyspace(cls, cache: Union[int, None] = None, compression: bool = False):
         """
         Creates a new keyspace in the store with the specified settings for persistence, distribution, caching, and
         compression.
+
+        Args:
+            cache: Optional cache size in bytes. If None, no cache is used.
+            compression: Whether to enable compression. Default is False.
+
         Returns:
             bool: True if the keyspace was created successfully, False otherwise.
-        Raises:
-            ValueError: If the keyspace is not set to be persistent.
         """
         query = orjson.dumps({
             "raw": [
@@ -179,8 +141,8 @@ class persistent_kv:
                 "keyspace", cls.keyspace,
                 "persistent", "y",
                 "distributed", "y" if cls.distributed else "n",
-                "cache", cls.cache if cls.cache else "0",
-                "compression", "y" if cls.compression else "n"
+                "cache", cache if cache else "0",
+                "compression", "y" if compression else "n"
                 ],
             "credentials": [cls.username, cls.password]
         })
@@ -188,24 +150,24 @@ class persistent_kv:
         return await cls._run_query(query)
 
     @classmethod
-    async def update_cache_and_compression(cls):
+    async def update_cache_and_compression(cls, cache: Union[int, None] = None, compression: bool = False):
         """
         Updates the cache size and compression settings for the current store.
+
+        Args:
+            cache: Optional cache size in bytes. If None, no cache is used.
+            compression: Whether to enable compression. Default is False.
 
         Returns:
             bool
         """
-
-        if not cls.persistent:
-            raise ValueError("Cache and compression settings can only be updated for persistent keyspaces.")
-
         query = orjson.dumps({
             "raw": [
                 'update-cache-compression',
                 "store", cls.store,
                 "keyspace", cls.keyspace,
-                "cache", cls.cache if cls.cache else "0",
-                "compression", "y" if cls.compression else "n"
+                "cache", cache if cache else "0",
+                "compression", "y" if compression else "n"
             ],
             "credentials": [cls.username, cls.password]
         })

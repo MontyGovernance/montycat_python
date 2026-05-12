@@ -81,9 +81,8 @@ class inmemory_kv:
             raise ValueError("No custom key provided for insertion.")
 
         custom_key_converted = convert_custom_key(custom_key)
-        cls.command = "insert_custom_key"
 
-        query = convert_to_binary_query(cls, key=custom_key_converted, expire_sec=expire_sec)
+        query = convert_to_binary_query(cls, command="insert_custom_key", key=custom_key_converted, expire_sec=expire_sec)
         return await cls._run_query(query)
 
     @classmethod
@@ -103,9 +102,8 @@ class inmemory_kv:
             raise ValueError("No custom key provided for insertion.")
 
         custom_key_converted = convert_custom_key(custom_key)
-        cls.command = "insert_custom_key_value"
 
-        query = convert_to_binary_query(cls, key=custom_key_converted, value=value, expire_sec=expire_sec)
+        query = convert_to_binary_query(cls, command="insert_custom_key_value", key=custom_key_converted, value=value, expire_sec=expire_sec)
         return await cls._run_query(query)
 
     @classmethod
@@ -120,9 +118,7 @@ class inmemory_kv:
         if not value:
             raise ValueError("No value provided for insertion.")
 
-        cls.command = "insert_value"
-
-        query = convert_to_binary_query(cls, value=value, expire_sec=expire_sec)
+        query = convert_to_binary_query(cls, command="insert_value", value=value, expire_sec=expire_sec)
         return await cls._run_query(query)
 
     @classmethod
@@ -144,6 +140,9 @@ class inmemory_kv:
                         or a string message if the update was unsuccessful.
         """
 
+        if key and custom_key:
+            raise ValueError("Provide either key or custom_key, not both.")
+
         if custom_key and len(custom_key) > 0:
             key = convert_custom_key(custom_key)
 
@@ -152,9 +151,7 @@ class inmemory_kv:
         if not key:
             raise ValueError("No key provided")
 
-        cls.command = "update_value"
-
-        query = convert_to_binary_query(cls, key=key, value=filters, expire_sec=expire_sec)
+        query = convert_to_binary_query(cls, command="update_value", key=key, value=filters, expire_sec=expire_sec)
         return await cls._run_query(query)
 
     @classmethod
@@ -172,8 +169,7 @@ class inmemory_kv:
         if not bulk_values:
             raise ValueError("No values provided for bulk insertion.")
 
-        cls.command = "insert_bulk"
-        query = convert_to_binary_query(cls, bulk_values=bulk_values, expire_sec=expire_sec)
+        query = convert_to_binary_query(cls, command="insert_bulk", bulk_values=bulk_values, expire_sec=expire_sec)
         return await cls._run_query(query)
 
     @classmethod
@@ -186,11 +182,9 @@ class inmemory_kv:
         """
 
         if not latest_volume and not volumes:
-            raise ValueError("Please provide keys or volumes/latest volume.")
+            raise ValueError("Please provide volumes/latest volume.")
 
-        cls.command = "get_keys"
-
-        query = convert_to_binary_query(cls, volumes=volumes, latest_volume=latest_volume)
+        query = convert_to_binary_query(cls, command="get_keys", volumes=volumes, latest_volume=latest_volume)
         return await cls._run_query(query)
 
     @classmethod
