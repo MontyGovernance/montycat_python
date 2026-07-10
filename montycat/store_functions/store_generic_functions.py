@@ -118,6 +118,9 @@ def convert_to_binary_query(
     pointers_metadata: bool = False,
     limit_output: dict = {},
     schema: Union[str, None] = None,
+    semantic_query: Union[str, None] = None,
+    min_score: Union[float, None] = None,
+    wait_for_index: Union[bool, None] = None,
 ) -> bytes:
     """
     Converts parameters into a binary query format suitable for transmission.
@@ -198,13 +201,25 @@ def convert_to_binary_query(
         "bulk_values": [normalize_bools(v) for v in bulk_values],
         "bulk_keys": bulk_keys,
         "bulk_keys_values": {k: normalize_bools(v) for k, v in bulk_keys_values.items()},
-        "search_criteria": normalize_bools(search_criteria),
+        # `semantic_search` sends the raw query text (the engine trims it as a
+        # plain string); every other command sends a JSON-encoded filter map.
+        "search_criteria": semantic_query if semantic_query is not None else normalize_bools(search_criteria),
         "with_pointers": with_pointers,
         "volumes": volumes,
         "latest_volume": latest_volume,
         "key_included": key_included,
         "pointers_metadata": pointers_metadata,
     }
+
+    # Only `semantic_search` honors min_score; omit it otherwise so the wire is
+    # unchanged for existing commands (the engine defaults the field to None).
+    if min_score is not None:
+        query_dict["min_score"] = min_score
+
+    # Per-request wait_for_index override for persistent writes; omit when None
+    # so the server falls back to its DB-wide default (existing wire unchanged).
+    if wait_for_index is not None:
+        query_dict["wait_for_index"] = wait_for_index
 
     return orjson.dumps(query_dict)
 

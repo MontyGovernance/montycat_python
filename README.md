@@ -1,4 +1,4 @@
-# 🐍 The official async Python client for Montycat — the Rust-powered NoSQL database built for the Data Mesh era.
+# 🐍 The official async Python client for Montycat — the self-hosted NoSQL + vector database with built-in AI semantic search for RAG & AI agents, powered by Rust.
 
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/montycat?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/montycat)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -8,12 +8,13 @@
 
 ## What is Montycat?
 
-Montycat is a Rust-powered NoSQL engine designed for the future of data — decentralized by nature, ultra-fast, and natively async.
+Montycat is a **self-hosted NoSQL + vector database** — one Rust-powered engine with semantic search built in, so you get **RAG, AI-agent memory, and vector search** without bolting a separate vector DB (and its per-query bill) onto your stack. No cloud lock-in, no ops headache — decentralized by nature, ultra-fast, and natively async.
 ## 🧠 Why Montycat?
 
 - ⚡ Blazing Speed — Powered by the Montycat Engine written in Rust, built for microsecond-level read/write performance.
 - 🌀 Async-First Design — Fully asynchronous, built on asyncio. Perfect for APIs, pipelines, and real-time apps.
 - 💾 Hybrid Storage — In-memory for raw speed or persistent for durability — or mix both in one engine.
+- 🔎 AI Semantic & Vector Search — Rank data by *meaning* with on-device embeddings. Built-in kNN vector search for **RAG, AI agents & LLM apps** — no external API, no separate vector database. *(requires the `montycat-semantic` server edition — Docker image, package, or apt; see below.)*
 - 🧩 Schema-Aware — Define data schemas in Python, enforce them at runtime — with zero ceremony.
 - 🗂️ True Data Mesh Architecture — Each keyspace is a self-owned, domain-oriented data product.
 - 📡 Reactive Subscriptions — Subscribe to live updates in real-time — per key or per keyspace.
@@ -93,8 +94,8 @@ class ProductionSchema(Schema):
     work_order: str | None
 
 async def migrate_schemas():
-    await Production.enforce_schema()
-    await Sales.enforce_schema()
+    await Production.enforce_schema(ProductionSchema)
+    await Sales.enforce_schema(SalesSchema)
 
 asyncio.run(migrate_schemas())
 
@@ -119,5 +120,49 @@ asyncio.run(Production.insert_value(items_ordered))
 asyncio.run(Sales.lookup_values_where(schema=SalesSchema, key_included=True))
 asyncio.run(Production.lookup_keys_where(work_order="WO 000012"))
 
+```
+
+## 🧠 AI-Native Semantic Search — Vector Search Built Into Your Database
+
+**Stop bolting a separate vector database onto your stack.** Montycat ranks your data by
+*meaning*, not keywords — an embedded, on-device vector-embedding engine turns every write
+into a searchable vector automatically. It's the retrieval layer for **RAG pipelines, AI
+agents, semantic search, recommendation engines, and LLM-powered apps** — with **zero
+external APIs, zero API keys, and zero extra infrastructure.**
+
+- 🔎 **Semantic / vector search** — kNN similarity over on-device embeddings, not brittle keyword matches.
+- 🤖 **Built for AI** — RAG, semantic retrieval, AI agents, recommendations, dedup, clustering.
+- 🔒 **Private & free** — embeddings never leave your machine. No OpenAI/Cohere bill, no data egress.
+- ⚡ **One system, not two** — your data *and* its vectors live in the same database. No sync jobs, no drift, no second service to run.
+- 🚀 **Zero setup** — no index tuning, no pipeline: `enable_semantic_search()` and you're ranking by meaning.
+
+> **⚠️ Requires the semantic edition of the server — nothing to compile.** Semantic
+> search runs an embedded ONNX vector-embedding engine that ships only in the
+> **`montycat-semantic`** edition; the default lean `montycat` server does not include it.
+> Get it the way that suits you — pull the `montycat-semantic` **Docker image**, download
+> the prebuilt **package**, or install from the **apt repository**. The Python client API
+> is identical either way; just point it at a `montycat-semantic` server (semantic search
+> is enabled by default there, using the `bge-small` model).
+
+Enable it once, DB-wide, on the engine. The chosen embedding model is downloaded on demand
+on first enable, and every keyspace is embedded in the background as data is written.
+
+```python
+# Turn semantic search on for the whole database (model downloaded on first use).
+# model: 'minilm' | 'bge-small' (default) | 'bge-base' | 'e5-small'
+asyncio.run(connection.enable_semantic_search())
+
+# Rank stored items by meaning — two flavors:
+#   get_values → each hit is {key, score, value}
+#   get_keys   → each hit is {key, score} (lighter; fetch a page later with get_bulk)
+asyncio.run(Sales.semantic_search_get_values("wireless headphones", limit=5))
+asyncio.run(Sales.semantic_search_get_keys("wireless headphones", limit=5))
+
+# Optionally drop weak matches by cosine similarity (range [-1, 1]).
+asyncio.run(Sales.semantic_search_get_keys("wireless headphones", limit=5, min_score=0.35))
+
+# Turn it off (vectors are kept so re-enabling resumes instantly;
+# pass drop_vectors=True to also clear stored vectors).
+asyncio.run(connection.disable_semantic_search())
 ```
 

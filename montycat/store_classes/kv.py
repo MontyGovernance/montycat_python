@@ -177,7 +177,7 @@ class generic_kv:
         return await cls._run_query(query)
 
     @classmethod
-    async def delete_key(cls, key: Union[str, None] = None, custom_key: Union[str, None] = None):
+    async def delete_key(cls, key: Union[str, None] = None, custom_key: Union[str, None] = None, wait_for_index: Union[bool, None] = None):
         """
         Delete a key from the store. If a custom key is provided, it will be converted
         to the appropriate format before deletion.
@@ -187,6 +187,8 @@ class generic_kv:
                                        Default is an empty string, which will be ignored if custom_key is provided.
             custom_key (str, optional): The custom key to delete. This is used if the key provided is a custom key string.
                                        Default is an empty string.
+            wait_for_index: Per-request synchronous-index override; None (default) uses the DB-wide default.
+                            Applies to persistent keyspaces; in-memory already indexes synchronously.
 
         Returns:
             bool | str: Returns a boolean indicating success (True) or failure (False),
@@ -201,11 +203,11 @@ class generic_kv:
         if not key:
             raise ValueError("No key provided")
 
-        query = convert_to_binary_query(cls, command="delete_key", key=key)
+        query = convert_to_binary_query(cls, command="delete_key", key=key, wait_for_index=wait_for_index)
         return await cls._run_query(query)
 
     @classmethod
-    async def delete_bulk(cls, bulk_keys: list = [], bulk_custom_keys: list = []):
+    async def delete_bulk(cls, bulk_keys: list = [], bulk_custom_keys: list = [], wait_for_index: Union[bool, None] = None):
         """
         Delete multiple keys in bulk. If custom keys are provided, they are first converted
         to the appropriate format and then appended to the list of keys to be deleted.
@@ -231,7 +233,7 @@ class generic_kv:
         if not bulk_keys:
             raise ValueError("No keys provided for deletion.")
 
-        query = convert_to_binary_query(cls, command="delete_bulk", bulk_keys=bulk_keys)
+        query = convert_to_binary_query(cls, command="delete_bulk", bulk_keys=bulk_keys, wait_for_index=wait_for_index)
         return await cls._run_query(query)
 
     @classmethod
@@ -282,7 +284,7 @@ class generic_kv:
         return await cls._run_query(query)
 
     @classmethod
-    async def update_bulk(cls, bulk_keys_values: dict = {}, bulk_custom_keys_values: dict = {}):
+    async def update_bulk(cls, bulk_keys_values: dict = {}, bulk_custom_keys_values: dict = {}, wait_for_index: Union[bool, None] = None):
         """
         Update multiple keys in bulk with the provided new values. If custom keys are provided,
         they will be converted before being applied to the bulk update.
@@ -309,7 +311,7 @@ class generic_kv:
             bulk_custom_keys_values = convert_custom_keys_values(bulk_custom_keys_values)
             bulk_keys_values = {**bulk_keys_values, **bulk_custom_keys_values}
 
-        query = convert_to_binary_query(cls, command="update_bulk", bulk_keys_values=bulk_keys_values)
+        query = convert_to_binary_query(cls, command="update_bulk", bulk_keys_values=bulk_keys_values, wait_for_index=wait_for_index)
         return await cls._run_query(query)
 
     @classmethod
@@ -352,6 +354,98 @@ class generic_kv:
 
         query = convert_to_binary_query(cls, command="lookup_values", limit_output=handle_limit(limit), search_criteria=filters, with_pointers=with_pointers, key_included=key_included, pointers_metadata=pointers_metadata, schema=str(schema) if schema else None)
         return await cls._run_query(query)
+
+    @classmethod
+    async def _semantic_search(cls, query: str, limit: Union[int, list], min_score: Union[float, None], with_pointers: bool, key_included: bool, pointers_metadata: bool):
+        """Shared core for `semantic_search_get_keys` / `semantic_search_get_values`.
+
+        The server command is the same either way (`semantic_search`); the two
+        public methods differ only in which value-inclusion flags they pass, so
+        the wire call lives here once.
+        """
+        if not query or not query.strip():
+            raise ValueError("No query text provided for semantic search.")
+
+        query_binary = convert_to_binary_query(
+            cls,
+            command="semantic_search",
+            semantic_query=query,
+            limit_output=handle_limit(limit),
+            min_score=min_score,
+            with_pointers=with_pointers,
+            key_included=key_included,
+            pointers_metadata=pointers_metadata,
+        )
+        return await cls._run_query(query_binary)
+
+    @classmethod
+    async def semantic_search_get_keys(cls, query: str, limit: Union[int, list] = 0, min_score: Union[float, None] = None):
+        """
+        Semantic (vector similarity) search returning ranked keys only.
+
+        Ranks stored items by how close their embeddings are to the embedding of
+        `query` and returns just the matched key and score for each hit — the
+        lightweight variant when you only need identity + ranking (e.g. to then
+        `get_bulk` a page, or to test membership). Use `semantic_search_get_values`
+        when you want the values inline.
+
+        Semantic search must be enabled DB-wide first (see `Engine.enable_semantic_search`).
+        The keyspace is embedded in the background as items are written, so results
+        reflect whatever has been embedded so far.
+
+        Args:
+            query (str): The natural-language query text to embed and search for.
+            limit (int | list, optional): The maximum number of ranked results to return.
+                                          An int is treated as the top-k; a two-item list
+                                          [start, stop] paginates the ranked hits. Default 0,
+                                          which lets the server apply its default top-k (10).
+            min_score (float, optional): Drop hits whose cosine similarity (in [-1, 1]) is
+                                         below this value. Default None (no score filter).
+
+        Returns:
+            list | str: A list of ranked hits, each `{'key': ..., 'score': ...}`.
+                        Returns a string error message if the query fails.
+
+        Raises:
+            ValueError: If no query text is provided.
+        """
+        return await cls._semantic_search(query, limit, min_score, False, False, False)
+
+    @classmethod
+    async def semantic_search_get_values(cls, query: str, limit: Union[int, list] = 0, min_score: Union[float, None] = None, with_pointers: bool = False, pointers_metadata: bool = False):
+        """
+        Semantic (vector similarity) search returning ranked hits with their values.
+
+        Ranks stored items by how close their embeddings are to the embedding of
+        `query` and returns the value inline with each hit — the key is always
+        included so every value is tagged with its key. Use
+        `semantic_search_get_keys` when you only need keys + scores.
+
+        Semantic search must be enabled DB-wide first (see `Engine.enable_semantic_search`).
+        The keyspace is embedded in the background as items are written, so results
+        reflect whatever has been embedded so far.
+
+        Args:
+            query (str): The natural-language query text to embed and search for.
+            limit (int | list, optional): The maximum number of ranked results to return.
+                                          An int is treated as the top-k; a two-item list
+                                          [start, stop] paginates the ranked hits. Default 0,
+                                          which lets the server apply its default top-k (10).
+            min_score (float, optional): Drop hits whose cosine similarity (in [-1, 1]) is
+                                         below this value. Default None (no score filter).
+            with_pointers (bool, optional): If True, include pointers (foreign values) in each
+                                            returned value. Default False.
+            pointers_metadata (bool, optional): If True, include pointer metadata in each
+                                                returned value. Default False.
+
+        Returns:
+            list | str: A list of ranked hits, each `{'key': ..., 'score': ..., 'value': ...}`.
+                        Returns a string error message if the query fails.
+
+        Raises:
+            ValueError: If no query text is provided.
+        """
+        return await cls._semantic_search(query, limit, min_score, with_pointers, True, pointers_metadata)
 
     @classmethod
     async def list_all_depending_keys(cls, key: Union[str, None] = None, custom_key: Union[str, None] = None):

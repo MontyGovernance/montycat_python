@@ -211,6 +211,75 @@ class Engine:
         """
         return await self._execute_query_with_credentials(['list-owners'])
 
+    async def enable_semantic_search(self, model: Union[str, None] = None, field: Union[str, None] = None, store: Union[str, None] = None) -> Any:
+        """
+        Enable semantic (vector similarity) search.
+
+        Without `store`, this is DB-wide: it flips the whole database on, sets the default
+        embedding model and field, and enrolls every existing keyspace that has no semantic
+        config yet (each gets a background backfill so its existing items become searchable).
+        The chosen model is downloaded on demand on first enable, so this call may take a
+        while the first time.
+
+        With `store`, it is scoped: only that store's un-enrolled keyspaces are enrolled and
+        backfilled; the DB-wide switch and default model/field are left untouched. Use this
+        to (re-)enable one store without re-embedding the entire database.
+
+        Args:
+            model (str, optional): The embedding model key to use by default. One of
+                                   'minilm', 'bge-small', 'bge-base', 'e5-small'. Default
+                                   None, which uses the server default ('bge-small').
+            field (str, optional): The JSON field of each value to embed. Default None,
+                                   which embeds the whole value.
+            store (str, optional): Restrict enrollment/backfill to this store only. Default
+                                   None (DB-wide). If the DB-wide switch is off, a scoped
+                                   enable enrolls but nothing embeds until a DB-wide enable.
+
+        Returns:
+            Any: The server's response describing the enabled model and enrolled keyspaces.
+        """
+        command = ['enable-semantic-search']
+        if model:
+            command.extend(["model", model])
+        if field:
+            command.extend(["field", field])
+        if store:
+            command.extend(["store", store])
+
+        return await self._execute_query_with_credentials(command)
+
+    async def disable_semantic_search(self, drop_vectors: bool = False, store: Union[str, None] = None) -> Any:
+        """
+        Disable semantic search.
+
+        Without `store`, this is DB-wide: embedding and semantic queries stop across the
+        whole database; stored vectors are kept by default so re-enabling resumes without
+        a full re-embed.
+
+        With `store`, it is scoped: only that store's keyspaces are unenrolled (their
+        configs and resident graphs dropped); the DB-wide switch and all other stores are
+        left untouched. This is the surgical way to reset one store's semantic state
+        instead of nuking and re-backfilling the whole database.
+
+        Args:
+            drop_vectors (bool, optional): If True, also clear stored vectors — every
+                                           keyspace's DB-wide, or the scoped store's when
+                                           `store` is set. Required before switching to a
+                                           different embedding model. Default False.
+            store (str, optional): Restrict the disable to this store only. Default None
+                                   (DB-wide).
+
+        Returns:
+            Any: The server's response confirming the disable.
+        """
+        command = ['disable-semantic-search']
+        if drop_vectors:
+            command.append("drop-vectors")
+        if store:
+            command.extend(["store", store])
+
+        return await self._execute_query_with_credentials(command)
+
     async def get_structure_available(self) -> Any:
         """
         Retrieves the structure of the current store.
@@ -222,3 +291,105 @@ class Engine:
         command = ['get-structure-available', "store", self.store] if self.store else ['get-structure-available']
 
         return await self._execute_query_with_credentials(command)
+
+    async def enable_wait_for_index(self) -> Any:
+        """
+        Enable the DB-wide "wait for index" default: writes block until their
+        secondary indexes are updated before returning, so a write is
+        immediately visible to index-backed reads (e.g. lookup_*_where) at the
+        cost of higher write latency.
+
+        Requires superowner credentials.
+
+        Returns:
+            Any: The server's response confirming the change.
+        """
+        return await self._execute_query_with_credentials(['enable-wait-for-index'])
+
+    async def disable_wait_for_index(self) -> Any:
+        """
+        Disable the DB-wide "wait for index" default: writes return as soon as
+        the data is committed and indexing happens asynchronously in the
+        background (lower write latency; index-backed reads may briefly lag).
+        This is the default behavior.
+
+        Requires superowner credentials.
+
+        Returns:
+            Any: The server's response confirming the change.
+        """
+        return await self._execute_query_with_credentials(['disable-wait-for-index'])
+
+    async def enable_reports(self) -> Any:
+        """
+        Enable server-side operation reporting (logging). Requires superowner credentials.
+
+        Returns:
+            Any: The server's response confirming the change.
+        """
+        return await self._execute_query_with_credentials(['enable-reports'])
+
+    async def disable_reports(self) -> Any:
+        """
+        Disable server-side operation reporting (logging). Requires superowner credentials.
+
+        Returns:
+            Any: The server's response confirming the change.
+        """
+        return await self._execute_query_with_credentials(['disable-reports'])
+
+    async def allow_subscriptions(self) -> Any:
+        """
+        Allow clients to open keyspace subscriptions DB-wide. Requires superowner credentials.
+
+        Returns:
+            Any: The server's response confirming the change.
+        """
+        return await self._execute_query_with_credentials(['allow-subscriptions'])
+
+    async def restrict_subscriptions(self) -> Any:
+        """
+        Restrict (disallow) keyspace subscriptions DB-wide. Requires superowner credentials.
+
+        Returns:
+            Any: The server's response confirming the change.
+        """
+        return await self._execute_query_with_credentials(['restrict-subscriptions'])
+
+    async def queue_depths(self) -> Any:
+        """
+        Sample the current depth of every background task queue (index, timer,
+        counting) — an observability probe for whether the background runners
+        are keeping up with the write rate. Requires superowner credentials.
+
+        Returns:
+            Any: The server's response whose payload maps
+                 "index" | "timer" | "counting" to per-queue depth maps.
+        """
+        return await self._execute_query_with_credentials(['queue-depths'])
+
+    async def set_snapshot_rate(self, rate: int) -> Any:
+        """
+        Set the server-wide snapshot rate. Requires superowner credentials.
+
+        Args:
+            rate (int): The snapshot rate value (server-defined units).
+
+        Returns:
+            Any: The server's response confirming the change.
+        """
+        return await self._execute_query_with_credentials(['snapshot-rate', str(rate)])
+
+    async def set_expiration_check_rate(self, rate: int) -> Any:
+        """
+        Set how often the server scans for expired keys. Requires superowner credentials.
+
+        Args:
+            rate (int): Number of 15-minute intervals between expiration scans —
+                        the value is multiplied by 900 seconds server-side
+                        (e.g. rate=4 → a scan every 60 minutes).
+
+        Returns:
+            Any: The server's response confirming the change.
+        """
+        return await self._execute_query_with_credentials(['expiration-check', str(rate)])

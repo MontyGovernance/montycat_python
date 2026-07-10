@@ -7,10 +7,15 @@ class persistent_kv:
     persistent: bool = True
 
     @classmethod
-    async def insert_custom_key(cls, custom_key: str):
+    async def insert_custom_key(cls, custom_key: str, wait_for_index: Union[bool, None] = None):
         """
         Args:
             custom_key: A custom key to insert into the store. This key can be used to retrieve the value later.
+            wait_for_index: Per-request override for synchronous index waiting. True → the
+                            write returns only after its secondary indexes are updated
+                            (read-your-writes); False → fire-and-forget indexing; None (default)
+                            → use the DB-wide default (see Engine.enable/disable_wait_for_index).
+                            Applies to persistent writes; in-memory already indexes synchronously.
         Returns:
             True if the insert operation was successful. Class 'str' if the insert operation failed.
         """
@@ -18,15 +23,16 @@ class persistent_kv:
             raise ValueError("No custom key provided for insertion.")
 
         custom_key_converted = convert_custom_key(custom_key)
-        query = convert_to_binary_query(cls, command="insert_custom_key", key=custom_key_converted)
+        query = convert_to_binary_query(cls, command="insert_custom_key", key=custom_key_converted, wait_for_index=wait_for_index)
         return await cls._run_query(query)
 
     @classmethod
-    async def insert_custom_key_value(cls, custom_key: str, value: dict):
+    async def insert_custom_key_value(cls, custom_key: str, value: dict, wait_for_index: Union[bool, None] = None):
         """
         Args:
             custom_key: A custom key to insert into the store. This key can be used to retrieve the value later.
             value: A Python class / dict to insert into the store.
+            wait_for_index: Per-request synchronous-index override; None (default) uses the DB-wide default.
         Returns:
             True if the insert operation was successful. Class 'str' if the insert operation failed.
 
@@ -37,25 +43,26 @@ class persistent_kv:
             raise ValueError("No custom key provided for insertion.")
 
         custom_key_converted = convert_custom_key(custom_key)
-        query = convert_to_binary_query(cls, command="insert_custom_key_value", key=custom_key_converted, value=value)
+        query = convert_to_binary_query(cls, command="insert_custom_key_value", key=custom_key_converted, value=value, wait_for_index=wait_for_index)
         return await cls._run_query(query)
 
     @classmethod
-    async def insert_value(cls, value: dict):
+    async def insert_value(cls, value: dict, wait_for_index: Union[bool, None] = None):
         """
         Args:
             value: A Python class / dict to insert into the store.
+            wait_for_index: Per-request synchronous-index override; None (default) uses the DB-wide default.
         Returns:
             Key number if the insert operation was successful. Class 'str' if the insert operation failed.
         """
         if not value:
             raise ValueError("No value provided for insertion.")
 
-        query = convert_to_binary_query(cls, command="insert_value", value=value)
+        query = convert_to_binary_query(cls, command="insert_value", value=value, wait_for_index=wait_for_index)
         return await cls._run_query(query)
 
     @classmethod
-    async def update_value(cls, key: Union[str, None] = None, custom_key: Union[str, None] = None, **filters):
+    async def update_value(cls, key: Union[str, None] = None, custom_key: Union[str, None] = None, wait_for_index: Union[bool, None] = None, **filters):
         """
         Update the value associated with a given key in the store. If a custom key is provided,
         it will be converted to the appropriate format before updating.
@@ -84,14 +91,15 @@ class persistent_kv:
         if not key:
             raise ValueError("No key provided")
 
-        query = convert_to_binary_query(cls, command="update_value", key=key, value=filters)
+        query = convert_to_binary_query(cls, command="update_value", key=key, value=filters, wait_for_index=wait_for_index)
         return await cls._run_query(query)
 
     @classmethod
-    async def insert_bulk(cls, bulk_values: list):
+    async def insert_bulk(cls, bulk_values: list, wait_for_index: Union[bool, None] = None):
         """
         Args:
             bulk_values: A list of Python objects to insert into the store.
+            wait_for_index: Per-request synchronous-index override; None (default) uses the DB-wide default.
         Returns:
             True if the bulk insert operation was successful.
             List of values that were not inserted.
@@ -100,7 +108,7 @@ class persistent_kv:
         if not bulk_values:
             raise ValueError("No values provided for bulk insertion.")
 
-        query = convert_to_binary_query(cls, command="insert_bulk", bulk_values=bulk_values)
+        query = convert_to_binary_query(cls, command="insert_bulk", bulk_values=bulk_values, wait_for_index=wait_for_index)
         return await cls._run_query(query)
 
     @classmethod

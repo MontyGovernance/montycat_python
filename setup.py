@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 setup(
     name='montycat',
     version='1.0.4',
-    description='A Python client for Montycat, NoSQL database utilizing Data Mesh architecture.',
+    description='A Python client for Montycat — the self-hosted NoSQL + vector database with built-in AI semantic search for RAG & AI agents, utilizing Data Mesh architecture.',
     packages=find_packages(),
     zip_safe=False,
     long_description=open('README.md', encoding='utf-8').read(),
@@ -18,6 +18,6 @@ setup(
         "Intended Audience :: Developers",
         "License :: OSI Approved :: MIT License",
     ],
-    keywords="database nosql sql data-mesh cache key-value realtime montycat",
+    keywords="vector-database database nosql semantic-search vector-search embeddings rag ai-agents agent-memory self-hosted pinecone-alternative ai llm sql data-mesh cache key-value realtime montycat",
     python_requires='>=3.9',
 )
