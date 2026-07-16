@@ -2,7 +2,10 @@
 
 # Configuration
 PACKAGE_NAME="montycat"
-VERSION="1.0.4"
+# setup.py is the SINGLE SOURCE OF TRUTH for all metadata (description,
+# keywords, classifiers, project_urls). Derive the version from it — never
+# regenerate the file, or a build would silently downgrade the PyPI SEO.
+VERSION="$(grep -oE "version='[^']+'" setup.py | head -1 | cut -d\' -f2)"
 PYPI_TOKEN="${PYPI_TOKEN:-}"
 
 # Exit on any error
@@ -34,37 +37,6 @@ check_prerequisites() {
     fi
 }
 
-# Update setup.py without package_data
-update_setup() {
-    echo "Updating setup.py..."
-    cat > setup.py <<EOF
-from setuptools import setup, find_packages
-
-setup(
-    name='$PACKAGE_NAME',
-    version='$VERSION',
-    description='A Python client for Montycat, NoSQL database utilizing Data Mesh architecture.',
-    packages=find_packages(),
-    zip_safe=False,
-    long_description=open('README.md', encoding='utf-8').read(),
-    long_description_content_type='text/markdown',
-    author='MontyGovernance',
-    author_email='eugene.and.monty@gmail.com',
-    install_requires=['orjson', 'xxhash'],
-    classifiers=[
-        "Programming Language :: Python :: 3",
-        "Topic :: Database",
-        "Topic :: Software Development :: Libraries",
-        "Intended Audience :: Developers",
-        "License :: OSI Approved :: MIT License",
-    ],
-    keywords="database nosql sql data-mesh cache key-value realtime montycat",
-    python_requires='>=3.9',
-)
-EOF
-    echo "Updated setup.py"
-}
-
 # Build and push to PyPI
 build_and_push() {
     echo "Building source distribution..."
@@ -89,8 +61,8 @@ build_and_push() {
 # Main execution
 main() {
     CI_DEPLOY="${CI_DEPLOY:-false}"  # Default to false unless set by CI
+    echo "Building $PACKAGE_NAME v$VERSION (metadata from setup.py)"
     check_prerequisites
-    update_setup
     build_and_push
 }
 

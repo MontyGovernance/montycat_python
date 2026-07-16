@@ -1,14 +1,31 @@
-# 🐍 The official async Python client for Montycat — the self-hosted NoSQL + vector database with built-in AI semantic search for RAG & AI agents, powered by Rust.
+# 🐍 Montycat for Python — The AI-Native NoSQL Database with Semantic Search for RAG & Agents
 
-[![PyPI Downloads](https://static.pepy.tech/personalized-badge/montycat?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/montycat)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+### Abolish the two-database stack.
+
+The official async Python client for [Montycat](https://montygovernance.com) — a self-hosted **NoSQL + vector database** with AI **semantic search** forged into the core, built for **RAG and AI-agent memory**. One Rust engine, not a sprawl of services. **Your hardware. Your data. Your meaning.**
+
 [![PyPI Version](https://img.shields.io/pypi/v/montycat.svg)](https://pypi.org/project/montycat/)
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/montycat?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/montycat)
+[![Docker Pulls](https://img.shields.io/docker/pulls/montygovernance/montycat)](https://hub.docker.com/r/montygovernance/montycat)
 [![Python Version](https://img.shields.io/pypi/pyversions/montycat)](https://www.python.org/)
-[![Maintenance](https://img.shields.io/badge/maintained-yes-brightgreen.svg)]()
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/MontyGovernance/montycat_python/blob/master/LICENSE)
+
+```python
+# Search your data by MEANING — no external APIs, no separate vector database.
+# (already ON by default in the montycat-semantic server edition)
+hits = await Sales.semantic_search_get_values("wireless headphones", limit=5)
+# → [{key, score, value}, ...] ranked by semantic similarity
+```
+
+> ### 🧩 All-in-one. AI-native. **Zero external dependencies.**
+> The vector-embedding engine runs **inside** the database — **no** separate vector DB, **no** embedding API, **no** API keys, **no** sidecar service. One engine, one binary, your hardware.
 
 ## What is Montycat?
 
-Montycat is a **self-hosted NoSQL + vector database** — one Rust-powered engine with semantic search built in, so you get **RAG, AI-agent memory, and vector search** without bolting a separate vector DB (and its per-query bill) onto your stack. No cloud lock-in, no ops headache — decentralized by nature, ultra-fast, and natively async.
+For a generation we were told the price of intelligence was two systems: a database for your records, and a separate vector store — with its per-query bill — for their meaning. Montycat rejects that tax. It is a **self-hosted NoSQL + vector database**: one Rust-powered engine with semantic search built in, so **RAG, AI-agent memory, and vector search** live where your data already lives. No cloud lock-in. No ops headache. Decentralized by nature, ultra-fast, and natively async.
+
+Think of it as an **open-source, self-hosted alternative to Pinecone, Weaviate, Chroma, Qdrant, and Redis** — a **vector database _and_ a NoSQL store in a single engine**, so your records and their embeddings live together instead of in two systems you have to keep in sync. Montycat is not an incremental improvement on the databases you know. It is a break with them.
+
 ## 🧠 Why Montycat?
 
 - ⚡ Blazing Speed — Powered by the Montycat Engine written in Rust, built for microsecond-level read/write performance.
@@ -26,25 +43,38 @@ Montycat is a **self-hosted NoSQL + vector database** — one Rust-powered engin
 
 Montycat is not a database wrapper. It’s a new way to think about data — composable, fast by design. No legacy baggage. Just clean async functions and pure data. Montycat isn’t inspired by NoSQL. It redefines it — with elegance, concurrency, and memory safety.
 
-## 👉 Install the Engine: https://montygovernance.com
-
 ## Montycat for Python?
 
-This is the official Python client, built to bring Montycat’s next-generation Data Mesh architecture directly into your Python applications. This client empowers developers to seamlessly manage and query their data while leveraging the unparalleled flexibility and scalability offered by NoSQL databases within a decentralized data ownership paradigm
-Forget ORM hell, clunky SQL syntax, or blocking I/O.
-With Montycat, data feels alive — reactive, structured, and fast enough to keep up with your imagination.
+This is the official Python client, built to bring Montycat’s next-generation Data Mesh architecture directly into your Python applications — manage and query your data with the flexibility of NoSQL and true decentralized data ownership. Forget ORM hell, clunky SQL syntax, and blocking I/O. With Montycat, data feels alive — reactive, structured, and fast enough to keep up with your imagination.
 
 ## 🔍 Example Use Cases
 
+- **RAG pipelines & semantic retrieval** for LLM-powered apps
+- **AI agent / chatbot long-term memory** that survives restarts
+- **Semantic product search & recommendations** — match intent, not keywords
 - Real-time dashboards and analytics
 - Async ETL pipelines with real-time awareness and processing
-- Microservice data stores
-- Event-driven data systems
+- Microservice data stores and event-driven systems
 - Collaborative data products in a Mesh architecture
+
+## 🚀 Get the Engine (30 seconds)
+
+The client talks to a Montycat server. Fastest way — Docker, with AI semantic search built in:
+
+```bash
+docker run -d --name montycat \
+  -p 21210:21210 -p 21211:21211 \
+  -e MONTYCAT_SUPEROWNER="admin" \
+  -e MONTYCAT_PASSWORD="change-me" \
+  -v montycat_data:/app/.montycat \
+  montygovernance/montycat:semantic
+```
+
+Prefer the lean edition without the embedding engine? Use the `latest` tag. Prebuilt packages (apt, macOS, Windows) at **https://montygovernance.com**.
 
 ## Installation
 
-You can install Python client for Montycat using `pip`:
+Install the Python client with `pip`:
 
 ```bash
 pip install montycat
@@ -53,8 +83,8 @@ pip install montycat
 ## Quick Start
 
 ```python
-from montycat import Engine, Keyspace, Schema
 import asyncio
+from montycat import Engine, Keyspace, Schema
 
 # setup connection
 
@@ -66,6 +96,8 @@ connection = Engine(
     store="Departments",
 )
 
+# keyspaces: persistent or in-memory — mix freely in one engine
+
 class Sales(Keyspace.Persistent):
     keyspace = "Sales"
 
@@ -75,15 +107,7 @@ class Production(Keyspace.InMemory):
 Sales.connect_engine(connection)
 Production.connect_engine(connection)
 
-# create store and keyspaces using runtime migration
-
-async def setup_keyspaces():
-    await Production.create_keyspace()
-    await Sales.create_keyspace()
-
-asyncio.run(setup_keyspaces())
-
-# create schemas and enforce them on the database side (optional)
+# schemas, enforced on the database side (optional)
 
 class SalesSchema(Schema):
     product: str
@@ -93,33 +117,26 @@ class ProductionSchema(Schema):
     items: list
     work_order: str | None
 
-async def migrate_schemas():
-    await Production.enforce_schema(ProductionSchema)
+async def main():
+    # create store and keyspaces using runtime migration
+    await Sales.create_keyspace()
+    await Production.create_keyspace()
+
     await Sales.enforce_schema(SalesSchema)
+    await Production.enforce_schema(ProductionSchema)
 
-asyncio.run(migrate_schemas())
+    # write
+    sale = SalesSchema(product="Product1", amount=12).serialize()
+    await Sales.insert_value(sale)
 
-# run first queries
+    order = ProductionSchema(items=["Product1"], work_order="WO 000012").serialize()
+    await Production.insert_value(order)
 
-sales = SalesSchema(
-    product = "Product1",
-    amount = 12
-).serialize()
+    # query
+    print(await Sales.lookup_values_where(schema=SalesSchema, key_included=True))
+    print(await Production.lookup_keys_where(work_order="WO 000012"))
 
-asyncio.run(Sales.insert_value(sales))
-
-items_ordered = ProductionSchema(
-    items = ["Product1"],
-    work_order = "WO 000012"
-).serialize()
-
-asyncio.run(Production.insert_value(items_ordered))
-
-# verify
-
-asyncio.run(Sales.lookup_values_where(schema=SalesSchema, key_included=True))
-asyncio.run(Production.lookup_keys_where(work_order="WO 000012"))
-
+asyncio.run(main())
 ```
 
 ## 🧠 AI-Native Semantic Search — Vector Search Built Into Your Database
@@ -139,30 +156,47 @@ external APIs, zero API keys, and zero extra infrastructure.**
 > **⚠️ Requires the semantic edition of the server — nothing to compile.** Semantic
 > search runs an embedded ONNX vector-embedding engine that ships only in the
 > **`montycat-semantic`** edition; the default lean `montycat` server does not include it.
-> Get it the way that suits you — pull the `montycat-semantic` **Docker image**, download
-> the prebuilt **package**, or install from the **apt repository**. The Python client API
-> is identical either way; just point it at a `montycat-semantic` server (semantic search
-> is enabled by default there, using the `bge-small` model).
+> Get it the way that suits you — pull the **Docker image**
+> (`montygovernance/montycat:semantic`), download the prebuilt **package**, or install
+> `montycat-semantic` from the **apt repository**. The Python client API is identical
+> either way; just point it at a semantic-edition server (semantic search is enabled by
+> default there, using the `bge-small` model).
 
-Enable it once, DB-wide, on the engine. The chosen embedding model is downloaded on demand
-on first enable, and every keyspace is embedded in the background as data is written.
+The switch is DB-wide and already on in the semantic edition. The embedding model is
+downloaded on demand, and every keyspace is embedded in the background as data is written.
 
 ```python
-# Turn semantic search on for the whole database (model downloaded on first use).
-# model: 'minilm' | 'bge-small' (default) | 'bge-base' | 'e5-small'
-asyncio.run(connection.enable_semantic_search())
-
+# Semantic search is ON by default in the montycat-semantic edition — just search.
 # Rank stored items by meaning — two flavors:
 #   get_values → each hit is {key, score, value}
 #   get_keys   → each hit is {key, score} (lighter; fetch a page later with get_bulk)
-asyncio.run(Sales.semantic_search_get_values("wireless headphones", limit=5))
-asyncio.run(Sales.semantic_search_get_keys("wireless headphones", limit=5))
+hits = await Sales.semantic_search_get_values("wireless headphones", limit=5)
+keys = await Sales.semantic_search_get_keys("wireless headphones", limit=5)
 
 # Optionally drop weak matches by cosine similarity (range [-1, 1]).
-asyncio.run(Sales.semantic_search_get_keys("wireless headphones", limit=5, min_score=0.35))
+strong = await Sales.semantic_search_get_keys("wireless headphones", limit=5, min_score=0.35)
 
-# Turn it off (vectors are kept so re-enabling resumes instantly;
-# pass drop_vectors=True to also clear stored vectors).
-asyncio.run(connection.disable_semantic_search())
+# Control the DB-wide switch (optional — it's already on):
+# switch the embedding model: 'minilm' | 'bge-small' (default) | 'bge-base' | 'e5-small'
+await connection.enable_semantic_search(model="bge-base")
+
+# turn it off (vectors are kept so re-enabling resumes instantly;
+# pass drop_vectors=True to also clear stored vectors)
+await connection.disable_semantic_search()
 ```
+
+## 🔗 Links
+
+- 🌐 **Website & Docs** — https://montygovernance.com
+- 📦 **PyPI** — https://pypi.org/project/montycat/
+- 🐳 **Docker Hub** — https://hub.docker.com/r/montygovernance/montycat
+- 💻 **Source** — https://github.com/MontyGovernance/montycat_python
+
+## ❓ FAQ
+
+- **Is Montycat a vector database or a NoSQL database?** Both — one engine. Store records and query them by *meaning* (vector / semantic search) or by key/schema, without running two systems.
+- **Do I need OpenAI or an embedding API?** No. Embeddings run on-device in the `montycat-semantic` server. No API keys, no per-query bill, no data egress.
+- **Is it a Pinecone / Weaviate / Chroma / Qdrant alternative?** Yes — self-hosted and open-source, with a NoSQL store built in.
+- **Which Python versions?** 3.9+ — fully async (`asyncio`).
+
 
