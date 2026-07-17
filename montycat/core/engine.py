@@ -385,9 +385,9 @@ class Engine:
         Set how often the server scans for expired keys. Requires superowner credentials.
 
         Args:
-            rate (int): Number of 15-minute intervals between expiration scans —
-                        the value is multiplied by 900 seconds server-side
-                        (e.g. rate=4 → a scan every 60 minutes).
+            rate (int): The check period in whole seconds (e.g. rate=10 → a scan
+                        every 10 seconds). Stored as-is, like the snapshot rate.
+                        Defaults to 1 second server-side.
 
         Returns:
             Any: The server's response confirming the change.
