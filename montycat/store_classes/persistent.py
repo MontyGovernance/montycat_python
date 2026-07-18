@@ -149,7 +149,7 @@ class persistent_kv:
                 "keyspace", cls.keyspace,
                 "persistent", "y",
                 "distributed", "y" if cls.distributed else "n",
-                "cache", cache if cache else "0",
+                "cache", str(cache) if cache else "0",
                 "compression", "y" if compression else "n"
                 ],
             "credentials": [cls.username, cls.password]
@@ -174,7 +174,7 @@ class persistent_kv:
                 'update-cache-compression',
                 "store", cls.store,
                 "keyspace", cls.keyspace,
-                "cache", cache if cache else "0",
+                "cache", str(cache) if cache else "0",
                 "compression", "y" if compression else "n"
             ],
             "credentials": [cls.username, cls.password]

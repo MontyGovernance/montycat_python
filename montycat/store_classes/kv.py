@@ -139,13 +139,15 @@ class generic_kv:
         if not schema:
             raise ValueError("No schema provided for removal")
 
+        # Server parses positionally: it expects "schema_name" at raw index 7
+        # (get_schema_name). Do NOT insert a "distributed" pair here — it would
+        # shift schema_name and the server rejects the request as invalid.
         query = orjson.dumps({
             "raw": [
                     "remove-enforced-schema",
                     "store", cls.store,
                     "keyspace", cls.keyspace,
                     "persistent", "y" if cls.persistent else "n",
-                    "distributed", "y" if cls.distributed else "n",
                     "schema_name", str(schema)
                 ],
             "credentials": [cls.username, cls.password]
