@@ -405,7 +405,7 @@ class generic_kv:
                                          below this value. Default None (no score filter).
 
         Returns:
-            list | str: A list of ranked hits, each `{'key': ..., 'score': ...}`.
+            list | str: A list of ranked hits, each `{'__key__': ..., '__score__': ...}`.
                         Returns a string error message if the query fails.
 
         Raises:
@@ -441,8 +441,10 @@ class generic_kv:
                                                 returned value. Default False.
 
         Returns:
-            list | str: A list of ranked hits, each `{'key': ..., 'score': ..., 'value': ...}`.
-                        Returns a string error message if the query fails.
+            list | str: A list of ranked hits, each
+                        `{'__key__': ..., '__score__': ..., '__value__': ...}` — the same
+                        dunder envelope `lookup_values_where(key_included=True)` returns,
+                        plus the score. Returns a string error message if the query fails.
 
         Raises:
             ValueError: If no query text is provided.
