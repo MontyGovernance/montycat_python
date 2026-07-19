@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='montycat',
-    version='1.0.5',
+    version='1.0.6',
     description=(
         'Self-hosted vector database + NoSQL with built-in AI semantic search — the async '
         'Python client for Montycat. A Rust-powered, AI-native Pinecone / Weaviate / Chroma '

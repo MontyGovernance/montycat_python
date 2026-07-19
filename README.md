@@ -13,8 +13,8 @@ The official async Python client for [Montycat](https://montygovernance.com) —
 ```python
 # Search your data by MEANING — no external APIs, no separate vector database.
 # (already ON by default in the montycat-semantic server edition)
-hits = await Sales.semantic_search_get_values("something to listen to music without wires", limit=5)
-# → [{key, score, value: {"name": "Wireless Headphones"}}, ...]  (matched by meaning, not keywords)
+hits = await Sales.semantic_search_get_values("Show all Bluetooth devices", limit=5)
+# → [{__key__, __score__, __value__: {"name": "Wireless Headphones"}}, ...]  (matched by meaning, not keywords)
 ```
 
 > ### 🧩 All-in-one. AI-native. **Zero external dependencies.**
@@ -168,13 +168,13 @@ downloaded on demand, and every keyspace is embedded in the background as data i
 ```python
 # Semantic search is ON by default in the montycat-semantic edition — just search.
 # Rank stored items by meaning — two flavors:
-#   get_values → each hit is {key, score, value}
-#   get_keys   → each hit is {key, score} (lighter; fetch a page later with get_bulk)
-hits = await Sales.semantic_search_get_values("something to listen to music without wires", limit=5)
-keys = await Sales.semantic_search_get_keys("something to listen to music without wires", limit=5)
+#   get_values → each hit is {__key__, __score__, __value__}
+#   get_keys   → each hit is {__key__, __score__} (lighter; fetch a page later with get_bulk)
+hits = await Sales.semantic_search_get_values("Show all Bluetooth devices", limit=5)
+keys = await Sales.semantic_search_get_keys("Show all Bluetooth devices", limit=5)
 
 # Optionally drop weak matches by cosine similarity (range [-1, 1]).
-strong = await Sales.semantic_search_get_keys("something to listen to music without wires", limit=5, min_score=0.35)
+strong = await Sales.semantic_search_get_keys("Show all Bluetooth devices", limit=5, min_score=0.35)
 
 # Control the DB-wide switch (optional — it's already on):
 # switch the embedding model: 'minilm' | 'bge-small' (default) | 'bge-base' | 'e5-small'
