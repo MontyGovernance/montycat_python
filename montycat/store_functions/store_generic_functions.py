@@ -120,6 +120,7 @@ def convert_to_binary_query(
     schema: Union[str, None] = None,
     semantic_query: Union[str, None] = None,
     min_score: Union[float, None] = None,
+    semantic_filter: Union[dict, None] = None,
     wait_for_index: Union[bool, None] = None,
 ) -> bytes:
     """
@@ -215,6 +216,14 @@ def convert_to_binary_query(
     # unchanged for existing commands (the engine defaults the field to None).
     if min_score is not None:
         query_dict["min_score"] = min_score
+
+    # Hybrid metadata pre-filter for `semantic_search` (hard AND constraint,
+    # same criteria shape as lookup_keys_where — Timestamp/Pointer supported).
+    # Omit when None so the wire is unchanged for existing commands.
+    if semantic_filter is not None:
+        query_dict["semantic_filter"] = normalize_bools(
+            handle_timestamps_and_pointers(semantic_filter)
+        )
 
     # Per-request wait_for_index override for persistent writes; omit when None
     # so the server falls back to its DB-wide default (existing wire unchanged).
