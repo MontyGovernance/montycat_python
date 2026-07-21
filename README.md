@@ -66,7 +66,7 @@ docker run -d --name montycat \
   -p 21210:21210 -p 21211:21211 \
   -e MONTYCAT_SUPEROWNER="admin" \
   -e MONTYCAT_PASSWORD="change-me" \
-  -v montycat_data:/app/.montycat \
+  -v montycat_data:/var/lib/.montycat \
   montygovernance/montycat:semantic
 ```
 
