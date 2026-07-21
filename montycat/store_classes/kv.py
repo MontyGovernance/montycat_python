@@ -358,7 +358,7 @@ class generic_kv:
         return await cls._run_query(query)
 
     @classmethod
-    async def _semantic_search(cls, query: str, limit: Union[int, list], min_score: Union[float, None], with_pointers: bool, key_included: bool, pointers_metadata: bool):
+    async def _semantic_search(cls, query: str, limit: Union[int, list], min_score: Union[float, None], filters: Union[dict, None], with_pointers: bool, key_included: bool, pointers_metadata: bool):
         """Shared core for `semantic_search_get_keys` / `semantic_search_get_values`.
 
         The server command is the same either way (`semantic_search`); the two
@@ -374,6 +374,7 @@ class generic_kv:
             semantic_query=query,
             limit_output=handle_limit(limit),
             min_score=min_score,
+            semantic_filter=filters,
             with_pointers=with_pointers,
             key_included=key_included,
             pointers_metadata=pointers_metadata,
@@ -411,7 +412,7 @@ class generic_kv:
         Raises:
             ValueError: If no query text is provided.
         """
-        return await cls._semantic_search(query, limit, min_score, False, False, False)
+        return await cls._semantic_search(query, limit, min_score, None, False, False, False)
 
     @classmethod
     async def semantic_search_get_values(cls, query: str, limit: Union[int, list] = 0, min_score: Union[float, None] = None, with_pointers: bool = False, pointers_metadata: bool = False):
@@ -449,7 +450,83 @@ class generic_kv:
         Raises:
             ValueError: If no query text is provided.
         """
-        return await cls._semantic_search(query, limit, min_score, with_pointers, True, pointers_metadata)
+        return await cls._semantic_search(query, limit, min_score, None, with_pointers, True, pointers_metadata)
+
+    @classmethod
+    async def semantic_search_get_keys_where(cls, query: str, filters: dict, limit: Union[int, list] = 0, min_score: Union[float, None] = None):
+        """
+        Hybrid semantic search returning ranked keys only, restricted by a metadata filter.
+
+        Same ranking as `semantic_search_get_keys`, but only items matching `filters`
+        are considered — a hard AND constraint through the same criteria stack as
+        `lookup_keys_where` (indexed fields, Timestamp, Pointer). Scores stay pure
+        cosine; the filter never boosts, it only restricts. A filter matching
+        nothing returns `[]`.
+
+        A separate method (not a parameter on `semantic_search_get_keys`) so
+        existing integrations keep their exact signature.
+
+        Args:
+            query (str): The natural-language query text to embed and search for.
+            filters (dict): Metadata criteria, same shape as `lookup_keys_where`.
+            limit (int | list, optional): The maximum number of ranked results to return.
+                                          An int is treated as the top-k; a two-item list
+                                          [start, stop] paginates the ranked hits. Default 0,
+                                          which lets the server apply its default top-k (10).
+            min_score (float, optional): Drop hits whose cosine similarity (in [-1, 1]) is
+                                         below this value. Default None (no score filter).
+
+        Returns:
+            list | str: A list of ranked hits, each `{'__key__': ..., '__score__': ...}`.
+                        Returns a string error message if the query fails.
+
+        Raises:
+            ValueError: If no query text or no filters are provided.
+        """
+        if not filters:
+            raise ValueError("No filters provided for hybrid semantic search.")
+        return await cls._semantic_search(query, limit, min_score, filters, False, False, False)
+
+    @classmethod
+    async def semantic_search_get_values_where(cls, query: str, filters: dict, limit: Union[int, list] = 0, min_score: Union[float, None] = None, with_pointers: bool = False, pointers_metadata: bool = False):
+        """
+        Hybrid semantic search returning ranked hits with their values, restricted by a metadata filter.
+
+        Same ranking as `semantic_search_get_values`, but only items matching `filters`
+        are considered — a hard AND constraint through the same criteria stack as
+        `lookup_keys_where` (indexed fields, Timestamp, Pointer). Scores stay pure
+        cosine; the filter never boosts, it only restricts. A filter matching
+        nothing returns `[]`.
+
+        A separate method (not a parameter on `semantic_search_get_values`) so
+        existing integrations keep their exact signature.
+
+        Args:
+            query (str): The natural-language query text to embed and search for.
+            filters (dict): Metadata criteria, same shape as `lookup_keys_where`.
+            limit (int | list, optional): The maximum number of ranked results to return.
+                                          An int is treated as the top-k; a two-item list
+                                          [start, stop] paginates the ranked hits. Default 0,
+                                          which lets the server apply its default top-k (10).
+            min_score (float, optional): Drop hits whose cosine similarity (in [-1, 1]) is
+                                         below this value. Default None (no score filter).
+            with_pointers (bool, optional): If True, include pointers (foreign values) in each
+                                            returned value. Default False.
+            pointers_metadata (bool, optional): If True, include pointer metadata in each
+                                                returned value. Default False.
+
+        Returns:
+            list | str: A list of ranked hits, each
+                        `{'__key__': ..., '__score__': ..., '__value__': ...}` — the same
+                        dunder envelope `lookup_values_where(key_included=True)` returns,
+                        plus the score. Returns a string error message if the query fails.
+
+        Raises:
+            ValueError: If no query text or no filters are provided.
+        """
+        if not filters:
+            raise ValueError("No filters provided for hybrid semantic search.")
+        return await cls._semantic_search(query, limit, min_score, filters, with_pointers, True, pointers_metadata)
 
     @classmethod
     async def list_all_depending_keys(cls, key: Union[str, None] = None, custom_key: Union[str, None] = None):

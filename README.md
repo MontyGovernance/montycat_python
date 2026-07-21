@@ -14,7 +14,7 @@ The official async Python client for [Montycat](https://montygovernance.com) —
 # Search your data by MEANING — no external APIs, no separate vector database.
 # (already ON by default in the montycat-semantic server edition)
 hits = await Sales.semantic_search_get_values("Show all Bluetooth devices", limit=5)
-# → [{__key__, __score__, __value__: {"name": "Wireless Headphones"}}, ...]  (matched by meaning, not keywords)
+# → [{__key__: 123..., __score__: 0.82, __value__: {"name": "Wireless Headphones"}}]
 ```
 
 > ### 🧩 All-in-one. AI-native. **Zero external dependencies.**
@@ -66,7 +66,7 @@ docker run -d --name montycat \
   -p 21210:21210 -p 21211:21211 \
   -e MONTYCAT_SUPEROWNER="admin" \
   -e MONTYCAT_PASSWORD="change-me" \
-  -v montycat_data:/app/.montycat \
+  -v montycat_data:/var/lib/.montycat \
   montygovernance/montycat:semantic
 ```
 
@@ -185,6 +185,29 @@ await connection.enable_semantic_search(model="bge-base")
 await connection.disable_semantic_search()
 ```
 
+### Hybrid semantic search
+
+Restrict meaning-based ranking to records matching structured metadata. The
+filter is a hard AND pre-filter with the same criteria shape as
+`lookup_keys_where`; it does not boost cosine scores.
+
+```python
+matching_keys = await Sales.semantic_search_get_keys_where(
+    "astronomy and outer space",
+    {"category": "space"},
+    limit=5,
+    min_score=0.35,
+)
+
+matching_values = await Sales.semantic_search_get_values_where(
+    "astronomy and outer space",
+    {"category": "space"},
+    limit=5,
+)
+# key hits:   {"__key__", "__score__"}
+# value hits: {"__key__", "__score__", "__value__"}
+```
+
 ## 🔗 Links
 
 - 🌐 **Website & Docs** — https://montygovernance.com
@@ -198,5 +221,4 @@ await connection.disable_semantic_search()
 - **Do I need OpenAI or an embedding API?** No. Embeddings run on-device in the `montycat-semantic` server. No API keys, no per-query bill, no data egress.
 - **Is it a Pinecone / Weaviate / Chroma / Qdrant alternative?** Yes — self-hosted and open-source, with a NoSQL store built in.
 - **Which Python versions?** 3.9+ — fully async (`asyncio`).
-
 
