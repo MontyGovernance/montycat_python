@@ -1,7 +1,7 @@
 import orjson
 from typing import Union, List, Optional, Any
 from urllib.parse import urlparse
-from .tools import Permission
+from .tools import Permission, PolicyCapability, PolicyKeyspaceType, SemanticModel, PolicyFormat
 from .utils import send_data
 
 class Engine:
@@ -211,7 +211,7 @@ class Engine:
         """
         return await self._execute_query_with_credentials(['list-owners'])
 
-    async def enable_semantic_search(self, model: Union[str, None] = None, field: Union[str, None] = None, store: Union[str, None] = None) -> Any:
+    async def enable_semantic_search(self, model: Optional[SemanticModel] = None, field: Union[str, None] = None, store: Union[str, None] = None, keyspace: Union[str, None] = None) -> Any:
         """
         Enable semantic (vector similarity) search.
 
@@ -238,17 +238,21 @@ class Engine:
         Returns:
             Any: The server's response describing the enabled model and enrolled keyspaces.
         """
+        if keyspace and not store:
+            raise ValueError("A store is required when keyspace is specified")
         command = ['enable-semantic-search']
         if model:
-            command.extend(["model", model])
+            command.extend(["model", model.value])
         if field:
             command.extend(["field", field])
         if store:
             command.extend(["store", store])
+        if keyspace:
+            command.extend(["keyspace", keyspace])
 
         return await self._execute_query_with_credentials(command)
 
-    async def disable_semantic_search(self, drop_vectors: bool = False, store: Union[str, None] = None) -> Any:
+    async def disable_semantic_search(self, drop_vectors: bool = False, store: Union[str, None] = None, keyspace: Union[str, None] = None) -> Any:
         """
         Disable semantic search.
 
@@ -272,13 +276,90 @@ class Engine:
         Returns:
             Any: The server's response confirming the disable.
         """
+        if keyspace and not store:
+            raise ValueError("A store is required when keyspace is specified")
         command = ['disable-semantic-search']
         if drop_vectors:
             command.append("drop-vectors")
         if store:
             command.extend(["store", store])
+        if keyspace:
+            command.extend(["keyspace", keyspace])
 
         return await self._execute_query_with_credentials(command)
+
+    async def policy_view(self, owner: Optional[str] = None, store: Optional[str] = None) -> Any:
+        command = ['policy-view']
+        if owner:
+            command.extend(['owner', owner])
+        if store:
+            command.extend(['store', store])
+        return await self._execute_query_with_credentials(command)
+
+    async def policy_history(self, owner: Optional[str] = None, store: Optional[str] = None, keyspace: Optional[str] = None) -> Any:
+        command = ['policy-history']
+        if owner:
+            command.extend(['owner', owner])
+        if store:
+            command.extend(['store', store])
+        if keyspace:
+            command.extend(['keyspace', keyspace])
+        return await self._execute_query_with_credentials(command)
+
+    async def policy_explain(self, capability: PolicyCapability, store: str, owner: Optional[str] = None, keyspace: Optional[str] = None, keyspace_type: Optional[PolicyKeyspaceType] = None, model: Optional[SemanticModel] = None) -> Any:
+        command = ['policy-explain', 'capability', capability.value, 'store', store]
+        if owner:
+            command.extend(['owner', owner])
+        if keyspace:
+            command.extend(['keyspace', keyspace])
+        if keyspace_type:
+            command.extend(['type', keyspace_type.value])
+        if model:
+            command.extend(['model', model.value])
+        return await self._execute_query_with_credentials(command)
+
+    async def _policy_mutation(self, operation: str, owner: str, capability: PolicyCapability, store: str, keyspace: Optional[str] = None, types: Optional[List[PolicyKeyspaceType]] = None, models: Optional[List[SemanticModel]] = None) -> Any:
+        command = [operation, 'owner', owner, 'capability', capability.value, 'store', store]
+        if keyspace:
+            command.extend(['keyspace', keyspace])
+        if types:
+            command.extend(['types', *(keyspace_type.value for keyspace_type in types)])
+        if models:
+            command.extend(['models', *(model.value for model in models)])
+        return await self._execute_query_with_credentials(command)
+
+    async def policy_grant(self, owner: str, capability: PolicyCapability, store: str, keyspace: Optional[str] = None, types: Optional[List[PolicyKeyspaceType]] = None, models: Optional[List[SemanticModel]] = None) -> Any:
+        return await self._policy_mutation('policy-grant', owner, capability, store, keyspace, types, models)
+
+    async def policy_revoke(self, owner: str, capability: PolicyCapability, store: str, keyspace: Optional[str] = None, types: Optional[List[PolicyKeyspaceType]] = None, models: Optional[List[SemanticModel]] = None) -> Any:
+        return await self._policy_mutation('policy-revoke', owner, capability, store, keyspace, types, models)
+
+    async def policy_deny(self, owner: str, capability: PolicyCapability, store: str, keyspace: Optional[str] = None, types: Optional[List[PolicyKeyspaceType]] = None, models: Optional[List[SemanticModel]] = None) -> Any:
+        return await self._policy_mutation('policy-deny', owner, capability, store, keyspace, types, models)
+
+    async def policy_remove_denial(self, owner: str, capability: PolicyCapability, store: str, keyspace: Optional[str] = None, types: Optional[List[PolicyKeyspaceType]] = None, models: Optional[List[SemanticModel]] = None) -> Any:
+        return await self._policy_mutation('policy-remove-denial', owner, capability, store, keyspace, types, models)
+
+    async def policy_preview_grant(self, owner: str, capability: PolicyCapability, store: str, keyspace: Optional[str] = None, types: Optional[List[PolicyKeyspaceType]] = None, models: Optional[List[SemanticModel]] = None) -> Any:
+        return await self._policy_mutation('policy-preview-grant', owner, capability, store, keyspace, types, models)
+
+    async def policy_preview_revoke(self, owner: str, capability: PolicyCapability, store: str, keyspace: Optional[str] = None, types: Optional[List[PolicyKeyspaceType]] = None, models: Optional[List[SemanticModel]] = None) -> Any:
+        return await self._policy_mutation('policy-preview-revoke', owner, capability, store, keyspace, types, models)
+
+    async def _policy_manifest(self, operation: str, document: str, format: PolicyFormat = PolicyFormat.JSON) -> Any:
+        return await self._execute_query_with_credentials([operation, 'format', format.value, 'document', document])
+
+    async def policy_validate(self, document: str, format: PolicyFormat = PolicyFormat.JSON) -> Any:
+        return await self._policy_manifest('policy-validate', document, format)
+
+    async def policy_plan(self, document: str, format: PolicyFormat = PolicyFormat.JSON) -> Any:
+        return await self._policy_manifest('policy-plan', document, format)
+
+    async def policy_apply(self, document: str, format: PolicyFormat = PolicyFormat.JSON) -> Any:
+        return await self._policy_manifest('policy-apply', document, format)
+
+    async def policy_export(self, format: PolicyFormat = PolicyFormat.JSON) -> Any:
+        return await self._execute_query_with_credentials(['policy-export', 'format', format.value])
 
     async def get_structure_available(self) -> Any:
         """

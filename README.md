@@ -178,7 +178,7 @@ strong = await Sales.semantic_search_get_keys("Show all Bluetooth devices", limi
 
 # Control the DB-wide switch (optional — it's already on):
 # switch the embedding model: 'minilm' | 'bge-small' (default) | 'bge-base' | 'e5-small'
-await connection.enable_semantic_search(model="bge-base")
+await connection.enable_semantic_search(model=SemanticModel.BGE_BASE)
 
 # turn it off (vectors are kept so re-enabling resumes instantly;
 # pass drop_vectors=True to also clear stored vectors)
@@ -221,4 +221,21 @@ matching_values = await Sales.semantic_search_get_values_where(
 - **Do I need OpenAI or an embedding API?** No. Embeddings run on-device in the `montycat-semantic` server. No API keys, no per-query bill, no data egress.
 - **Is it a Pinecone / Weaviate / Chroma / Qdrant alternative?** Yes — self-hosted and open-source, with a NoSQL store built in.
 - **Which Python versions?** 3.9+ — fully async (`asyncio`).
+## Data mesh governance
 
+Owners can inspect their effective policy and superowners can grant delegated
+keyspace authority programmatically:
+
+```python
+await engine.policy_grant(
+    "alice", PolicyCapability.PROVISION_KEYSPACE, "catalog",
+    types=[PolicyKeyspaceType.IN_MEMORY, PolicyKeyspaceType.PERSISTENT], models=[SemanticModel.BGE_SMALL],
+)
+await engine.policy_view(owner="alice", store="catalog")
+await engine.enable_semantic_search(
+    store="catalog", keyspace="products", model=SemanticModel.BGE_SMALL
+)
+```
+
+Superowners may also call `policy_validate`, `policy_plan`, `policy_apply`, and
+`policy_export` with JSON or YAML policy documents.

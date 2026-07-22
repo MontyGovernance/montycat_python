@@ -48,3 +48,31 @@ class Permission(Enum):
 
     def __str__(self):
         return self.value
+
+class PolicyCapability(str, Enum):
+    """Capabilities that can be granted through data-mesh governance policies."""
+    PROVISION_KEYSPACE = "provision-keyspace"
+    REMOVE_KEYSPACE = "remove-keyspace"
+    MANAGE_SNAPSHOTS = "manage-snapshots"
+    MANAGE_SEMANTIC = "manage-semantic"
+    MANAGE_SCHEMA = "manage-schema"
+    MANAGE_ACCESS = "manage-access"
+
+class PolicyKeyspaceType(str, Enum):
+    """Keyspace storage types addressable by governance policies."""
+    IN_MEMORY = "inmemory"
+    PERSISTENT = "persistent"
+    DISTRIBUTED = "distributed"
+
+class SemanticModel(str, Enum):
+    """Compiled embedding models supported by Montycat semantic search."""
+    MINI_LM = "minilm"
+    BGE_SMALL = "bge-small"
+    BGE_BASE = "bge-base"
+    E5_SMALL = "e5-small"
+
+class PolicyFormat(str, Enum):
+    """Serialization formats accepted by policy manifest commands."""
+    JSON = "json"
+    YAML = "yaml"
+    YML = "yml"
