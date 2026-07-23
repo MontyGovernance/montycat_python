@@ -227,6 +227,8 @@ Owners can inspect their effective policy and superowners can grant delegated
 keyspace authority programmatically:
 
 ```python
+from montycat import PolicyCapability, PolicyKeyspaceType, SemanticModel
+
 await engine.policy_grant(
     "alice", PolicyCapability.PROVISION_KEYSPACE, "catalog",
     types=[PolicyKeyspaceType.IN_MEMORY, PolicyKeyspaceType.PERSISTENT], models=[SemanticModel.BGE_SMALL],
