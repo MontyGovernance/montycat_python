@@ -310,7 +310,7 @@ class Engine:
         command = ['policy-explain', 'capability', capability.value, 'store', store]
         if owner:
             command.extend(['owner', owner])
-        if keyspace:
+        if keyspace and capability is not PolicyCapability.PROVISION_KEYSPACE:
             command.extend(['keyspace', keyspace])
         if keyspace_type:
             command.extend(['type', keyspace_type.value])
@@ -320,7 +320,7 @@ class Engine:
 
     async def _policy_mutation(self, operation: str, owner: str, capability: PolicyCapability, store: str, keyspace: Optional[str] = None, types: Optional[List[PolicyKeyspaceType]] = None, models: Optional[List[SemanticModel]] = None) -> Any:
         command = [operation, 'owner', owner, 'capability', capability.value, 'store', store]
-        if keyspace:
+        if keyspace and capability is not PolicyCapability.PROVISION_KEYSPACE:
             command.extend(['keyspace', keyspace])
         if types:
             command.extend(['types', *(keyspace_type.value for keyspace_type in types)])
