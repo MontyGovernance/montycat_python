@@ -132,10 +132,11 @@ class Engine:
         Raises:
             ValueError: If an invalid permission is provided.
         """
-        if permission not in self.VALID_PERMISSIONS:
+        normalized_permission = str(permission).strip().lower()
+        if normalized_permission not in self.VALID_PERMISSIONS:
             raise ValueError(f"Invalid permission: {permission}. Valid permissions are: {self.VALID_PERMISSIONS}")
 
-        command = ['grant-to', "owner", owner, "permission", permission, "store", self.store]
+        command = ['grant-to', "owner", owner, "permission", normalized_permission, "store", self.store]
         if keyspaces:
             command.append("keyspaces")
             if isinstance(keyspaces, str):
@@ -160,10 +161,11 @@ class Engine:
         Raises:
             ValueError: If an invalid permission is provided.
         """
-        if permission not in self.VALID_PERMISSIONS:
+        normalized_permission = str(permission).strip().lower()
+        if normalized_permission not in self.VALID_PERMISSIONS:
             raise ValueError(f"Invalid permission: {permission}. Valid permissions are: {self.VALID_PERMISSIONS}")
 
-        command = ['revoke-from', "owner", owner, "permission", permission, "store", self.store]
+        command = ['revoke-from', "owner", owner, "permission", normalized_permission, "store", self.store]
         if keyspaces:
             command.append("keyspaces")
             if isinstance(keyspaces, str):
