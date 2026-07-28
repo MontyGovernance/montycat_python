@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import AsyncMock, patch
 
 from montycat.core.engine import Engine
+from montycat.core.tools import PolicyCapability, PolicyKeyspaceType, SemanticModel
 from montycat.core.utils import recursive_parse_orjson
 
 
@@ -47,6 +48,69 @@ class PermissionNormalizationTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(execute.await_args_list[0].args[0][4], "all")
         self.assertEqual(execute.await_args_list[1].args[0][4], "write")
+
+
+class PolicyQualifierValidationTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        self.engine = Engine("localhost", 12777, "owner", "password", "orders")
+
+    async def test_accepts_capability_specific_qualifiers(self):
+        with patch.object(
+            self.engine,
+            "_execute_query_with_credentials",
+            new=AsyncMock(return_value={"status": True}),
+        ) as execute:
+            await self.engine.policy_grant(
+                "alice",
+                PolicyCapability.PROVISION_KEYSPACE,
+                "catalog",
+                types=[PolicyKeyspaceType.PERSISTENT],
+                models=[SemanticModel.BGE_SMALL],
+            )
+            await self.engine.policy_grant(
+                "alice",
+                PolicyCapability.MANAGE_SEMANTIC,
+                "catalog",
+                types=[PolicyKeyspaceType.PERSISTENT],
+                models=[SemanticModel.BGE_SMALL],
+            )
+
+        self.assertEqual(
+            execute.await_args_list[0].args[0][-4:],
+            ["types", "persistent", "models", "bge-small"],
+        )
+        self.assertEqual(
+            execute.await_args_list[1].args[0][-4:],
+            ["types", "persistent", "models", "bge-small"],
+        )
+
+    async def test_rejects_mismatched_qualifiers(self):
+        with self.assertRaisesRegex(ValueError, "models.*manage-semantic"):
+            await self.engine.policy_grant(
+                "alice",
+                PolicyCapability.MANAGE_SCHEMA,
+                "catalog",
+                models=[SemanticModel.BGE_SMALL],
+            )
+        with self.assertRaisesRegex(ValueError, "types.*manage-snapshots"):
+            await self.engine.policy_grant(
+                "alice",
+                PolicyCapability.MANAGE_SNAPSHOTS,
+                "catalog",
+                types=[PolicyKeyspaceType.PERSISTENT],
+            )
+        with self.assertRaisesRegex(ValueError, "model.*manage-semantic"):
+            await self.engine.policy_explain(
+                PolicyCapability.MANAGE_SCHEMA,
+                "catalog",
+                model=SemanticModel.BGE_SMALL,
+            )
+        with self.assertRaisesRegex(ValueError, "keyspace_type.*manage-snapshots"):
+            await self.engine.policy_explain(
+                PolicyCapability.MANAGE_SNAPSHOTS,
+                "catalog",
+                keyspace_type=PolicyKeyspaceType.PERSISTENT,
+            )
 
 
 if __name__ == "__main__":

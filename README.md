@@ -221,22 +221,36 @@ matching_values = await Sales.semantic_search_get_values_where(
 - **Do I need OpenAI or an embedding API?** No. Embeddings run on-device in the `montycat-semantic` server. No API keys, no per-query bill, no data egress.
 - **Is it a Pinecone / Weaviate / Chroma / Qdrant alternative?** Yes — self-hosted and open-source, with a NoSQL store built in.
 - **Which Python versions?** 3.9+ — fully async (`asyncio`).
-## Data mesh governance
 
-Owners can inspect their effective policy and superowners can grant delegated
-keyspace authority programmatically:
+## Data-mesh governance for shared and multi-tenant deployments
+
+Delegate administration without handing every team full server control. Policies scope
+authority to an owner and store, with optional keyspace, storage-type, and semantic-model
+constraints. This lets platform teams govern shared infrastructure while domain teams
+operate the data products they own.
+
+- Grant, revoke, or explicitly deny keyspace provisioning/removal, schema, semantic,
+  snapshot, and access-management capabilities.
+- Inspect effective permissions and history, or preview a grant/revoke before applying it.
+- Validate, plan, apply, and export JSON or YAML policy manifests for repeatable
+  infrastructure-as-code workflows.
+
+For example, a superowner can separately constrain keyspace provisioning and semantic
+management within one store:
 
 ```python
 from montycat import PolicyCapability, PolicyKeyspaceType, SemanticModel
 
-await engine.policy_grant(
+await connection.policy_grant(
     "alice", PolicyCapability.PROVISION_KEYSPACE, "catalog",
-    types=[PolicyKeyspaceType.IN_MEMORY, PolicyKeyspaceType.PERSISTENT], models=[SemanticModel.BGE_SMALL],
+    types=[PolicyKeyspaceType.IN_MEMORY, PolicyKeyspaceType.PERSISTENT],
+    models=[SemanticModel.BGE_SMALL],
 )
-await engine.policy_view(owner="alice", store="catalog")
-await engine.enable_semantic_search(
-    store="catalog", keyspace="products", model=SemanticModel.BGE_SMALL
+await connection.policy_grant(
+    "alice", PolicyCapability.MANAGE_SEMANTIC, "catalog",
+    keyspace="products", models=[SemanticModel.BGE_SMALL],
 )
+await connection.policy_view(owner="alice", store="catalog")
 ```
 
 Superowners may also call `policy_validate`, `policy_plan`, `policy_apply`, and

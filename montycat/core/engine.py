@@ -309,6 +309,13 @@ class Engine:
         return await self._execute_query_with_credentials(command)
 
     async def policy_explain(self, capability: PolicyCapability, store: str, owner: Optional[str] = None, keyspace: Optional[str] = None, keyspace_type: Optional[PolicyKeyspaceType] = None, model: Optional[SemanticModel] = None) -> Any:
+        if keyspace_type and capability is PolicyCapability.MANAGE_SNAPSHOTS:
+            raise ValueError("keyspace_type is not valid for manage-snapshots policies; snapshots are always in-memory")
+        if model and capability not in (
+            PolicyCapability.PROVISION_KEYSPACE,
+            PolicyCapability.MANAGE_SEMANTIC,
+        ):
+            raise ValueError("model is only valid for provision-keyspace or manage-semantic policies")
         command = ['policy-explain', 'capability', capability.value, 'store', store]
         if owner:
             command.extend(['owner', owner])
@@ -321,6 +328,13 @@ class Engine:
         return await self._execute_query_with_credentials(command)
 
     async def _policy_mutation(self, operation: str, owner: str, capability: PolicyCapability, store: str, keyspace: Optional[str] = None, types: Optional[List[PolicyKeyspaceType]] = None, models: Optional[List[SemanticModel]] = None) -> Any:
+        if types and capability is PolicyCapability.MANAGE_SNAPSHOTS:
+            raise ValueError("types is not valid for manage-snapshots policies; snapshots are always in-memory")
+        if models and capability not in (
+            PolicyCapability.PROVISION_KEYSPACE,
+            PolicyCapability.MANAGE_SEMANTIC,
+        ):
+            raise ValueError("models is only valid for provision-keyspace or manage-semantic policies")
         command = [operation, 'owner', owner, 'capability', capability.value, 'store', store]
         if keyspace and capability is not PolicyCapability.PROVISION_KEYSPACE:
             command.extend(['keyspace', keyspace])
