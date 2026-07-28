@@ -178,7 +178,7 @@ strong = await Sales.semantic_search_get_keys("Show all Bluetooth devices", limi
 
 # Control the DB-wide switch (optional — it's already on):
 # switch the embedding model: 'minilm' | 'bge-small' (default) | 'bge-base' | 'e5-small'
-await connection.enable_semantic_search(model="bge-base")
+await connection.enable_semantic_search(model=SemanticModel.BGE_BASE)
 
 # turn it off (vectors are kept so re-enabling resumes instantly;
 # pass drop_vectors=True to also clear stored vectors)
@@ -222,3 +222,36 @@ matching_values = await Sales.semantic_search_get_values_where(
 - **Is it a Pinecone / Weaviate / Chroma / Qdrant alternative?** Yes — self-hosted and open-source, with a NoSQL store built in.
 - **Which Python versions?** 3.9+ — fully async (`asyncio`).
 
+## Data-mesh governance for shared and multi-tenant deployments
+
+Delegate administration without handing every team full server control. Policies scope
+authority to an owner and store, with optional keyspace, storage-type, and semantic-model
+constraints. This lets platform teams govern shared infrastructure while domain teams
+operate the data products they own.
+
+- Grant, revoke, or explicitly deny keyspace provisioning/removal, schema, semantic,
+  snapshot, and access-management capabilities.
+- Inspect effective permissions and history, or preview a grant/revoke before applying it.
+- Validate, plan, apply, and export JSON or YAML policy manifests for repeatable
+  infrastructure-as-code workflows.
+
+For example, a superowner can separately constrain keyspace provisioning and semantic
+management within one store:
+
+```python
+from montycat import PolicyCapability, PolicyKeyspaceType, SemanticModel
+
+await connection.policy_grant(
+    "alice", PolicyCapability.PROVISION_KEYSPACE, "catalog",
+    types=[PolicyKeyspaceType.IN_MEMORY, PolicyKeyspaceType.PERSISTENT],
+    models=[SemanticModel.BGE_SMALL],
+)
+await connection.policy_grant(
+    "alice", PolicyCapability.MANAGE_SEMANTIC, "catalog",
+    keyspace="products", models=[SemanticModel.BGE_SMALL],
+)
+await connection.policy_view(owner="alice", store="catalog")
+```
+
+Superowners may also call `policy_validate`, `policy_plan`, `policy_apply`, and
+`policy_export` with JSON or YAML policy documents.
