@@ -208,19 +208,115 @@ matching_values = await Sales.semantic_search_get_values_where(
 # value hits: {"__key__", "__score__", "__value__"}
 ```
 
+## 📨 Response Shape
+
+Every call returns the same envelope, so there is one thing to check everywhere:
+
+```python
+# {"status": True,  "payload": <result>, "error": None}
+# {"status": False, "payload": None,     "error": "Governance permission denied: ..."}
+
+res = await Sales.insert_value(sale)
+if res["status"]:
+    print(res["payload"])
+```
+
+`payload` is `None` for commands that only acknowledge, the new key for inserts, and a
+list for lookups and semantic searches. **Keys are u128 and always arrive as strings** —
+keep them that way; Python `int` will hold one, but round-tripping through JSON or a
+float will not. Invalid arguments raise `ValueError` before anything touches the network;
+server-side failures come back in `error` with `"status": False`.
+
+## 📡 Real-Time Subscriptions
+
+Subscribe to one key or to a whole keyspace and get pushed every change — the reactive
+core behind live dashboards, async ETL, and event-driven services.
+
+```python
+def on_change(event):
+    print("changed:", event)
+
+# Whole keyspace: omit both key and custom_key.
+task, stop = await Sales.subscribe(callback=on_change)
+
+# Or watch a single key (custom_key is hashed for you).
+# Passing key and custom_key together raises ValueError; omitting callback does too.
+one_task, one_stop = await Sales.subscribe(
+    key="30442970696809394303186116932586352271",
+    callback=on_change,
+)
+
+# Stop listening and let the task finish.
+stop.set()
+await task
+```
+
+`subscribe` returns `(task, stop_event)` — an `asyncio.Task` running the stream and an
+`asyncio.Event` that ends it. Subscriptions use the **subscription port**, which defaults
+to `port + 1` — that is the second port (`21211`) published in the Docker command above.
+Override it with `subscription_port=` if your deployment maps it elsewhere.
+
+## 🔐 TLS
+
+Pass `tls=True` to negotiate an encrypted connection. It applies to commands and
+subscriptions alike:
+
+```python
+connection = Engine(
+    host="127.0.0.1",
+    port=21210,
+    username="USER",
+    password="12345",
+    store="Departments",
+    tls=True,
+)
+```
+
+> **Note.** The client accepts self-signed certificates, which is convenient for local
+> and internal deployments but means the server identity is not verified. Terminate TLS
+> at a trusted proxy if you need certificate validation.
+
+## 👥 Owners & Access
+
+Governance policies below are written against *owners*, so create them first. A
+superowner provisions an owner, then grants data access — optionally narrowed to
+specific keyspaces:
+
+```python
+from montycat import Permission
+
+await connection.create_owner("alice", "alice-password")
+
+await connection.grant_to("alice", Permission.READ)                       # whole store
+await connection.grant_to("alice", Permission.WRITE, keyspaces=["Sales"])  # scoped
+
+await connection.list_owners()
+
+await connection.revoke_from("alice", Permission.WRITE, keyspaces=["Sales"])
+await connection.remove_owner("alice")
+```
+
+`Permission` is `READ`, `WRITE`, or `ALL`; plain strings work too and are normalized
+(`" ALL "` → `all`), with an unknown token raising `ValueError`. `grant_to` and
+`revoke_from` apply to the engine's `store`. This governs **data access**; to delegate
+*administrative* capabilities such as provisioning keyspaces or managing schemas, see
+[Data-mesh governance](#data-mesh-governance-for-shared-and-multi-tenant-deployments) at
+the end of this document.
+
 ## 🔗 Links
 
 - 🌐 **Website & Docs** — https://montygovernance.com
 - 📦 **PyPI** — https://pypi.org/project/montycat/
 - 🐳 **Docker Hub** — https://hub.docker.com/r/montygovernance/montycat
 - 💻 **Source** — https://github.com/MontyGovernance/montycat_python
+- 📝 **Changelog** — [CHANGELOG.md](CHANGELOG.md)
 
 ## ❓ FAQ
 
 - **Is Montycat a vector database or a NoSQL database?** Both — one engine. Store records and query them by *meaning* (vector / semantic search) or by key/schema, without running two systems.
 - **Do I need OpenAI or an embedding API?** No. Embeddings run on-device in the `montycat-semantic` server. No API keys, no per-query bill, no data egress.
 - **Is it a Pinecone / Weaviate / Chroma / Qdrant alternative?** Yes — self-hosted and open-source, with a NoSQL store built in.
-- **Which Python versions?** 3.9+ — fully async (`asyncio`).
+- **Which Python versions?** 3.10+ — fully async (`asyncio`).
 
 ## Data-mesh governance for shared and multi-tenant deployments
 
@@ -231,9 +327,14 @@ operate the data products they own.
 
 - Grant, revoke, or explicitly deny keyspace provisioning/removal, schema, semantic,
   snapshot, and access-management capabilities.
-- Inspect effective permissions and history, or preview a grant/revoke before applying it.
+- Inspect effective permissions and policy history, or preview a grant/revoke before
+  applying it.
 - Validate, plan, apply, and export JSON or YAML policy manifests for repeatable
   infrastructure-as-code workflows.
+- Constrain storage types for provisioning, removal, schema, access, and semantic
+  management. Snapshot management is always in-memory, so it takes no storage-type
+  qualifier.
+- Constrain semantic models during keyspace provisioning and semantic management.
 
 For example, a superowner can separately constrain keyspace provisioning and semantic
 management within one store:
@@ -253,5 +354,7 @@ await connection.policy_grant(
 await connection.policy_view(owner="alice", store="catalog")
 ```
 
-Superowners may also call `policy_validate`, `policy_plan`, `policy_apply`, and
-`policy_export` with JSON or YAML policy documents.
+Use `policy_explain` to inspect an authorization decision and `policy_history` to audit
+changes. Superowners can manage policies directly with `policy_grant`, `policy_revoke`,
+`policy_deny`, and `policy_remove_denial`, or use `policy_validate`, `policy_plan`,
+`policy_apply`, and `policy_export` with JSON or YAML documents.

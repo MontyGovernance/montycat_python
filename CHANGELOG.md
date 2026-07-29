@@ -5,6 +5,40 @@ All notable changes to the Montycat Python client are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-07-29
+
+Documentation, tests, and CI only — no library code changed, so upgrading from
+1.1.0 is optional.
+
+### Added
+
+- README sections for behavior that was previously undocumented: response shape
+  (`{"status", "payload", "error"}` and u128 keys arriving as strings),
+  real-time subscriptions returning `(task, stop_event)` on the `port + 1`
+  subscription port, TLS via `tls=True`, and owner/access management with
+  `create_owner`, `grant_to`, `revoke_from`, and `Permission`.
+- CI now installs the package and runs the test suite on Python 3.10 through
+  3.13. The `test` job previously ran only a packaging dry run, so no test had
+  ever executed in CI.
+- Changelog link in the README.
+
+### Changed
+
+- **Declared Python support is now 3.10+, corrected from 3.9+.** The package has
+  never been importable on 3.9: `core/schema.py` and `store_classes/kv.py` both
+  import `types.UnionType` at module scope, which was added in 3.10, so any 3.9
+  install failed with `ImportError` on the first `import montycat`. The metadata
+  and the README FAQ advertised a version that never worked. Nothing that
+  currently runs is affected, and 3.9 reached end of life in October 2025.
+- The CI packaging dry run moved into its own `package` job, and the release job
+  now depends on both `test` and `package`.
+
+### Fixed
+
+- The governance section omitted the storage-type and semantic-model constraint
+  bullets and the `policy_explain` / `policy_history` paragraph that the Dart,
+  Node, and Rust clients document.
+
 ## [1.1.0] - 2026-07-28
 
 ### Added

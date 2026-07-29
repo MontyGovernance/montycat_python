@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='montycat',
-    version='1.1.0',
+    version='1.1.1',
     description=(
         'Self-hosted vector database + NoSQL with built-in AI semantic search — the async '
         'Python client for Montycat. A Rust-powered, AI-native Pinecone / Weaviate / Chroma '
@@ -35,7 +35,6 @@ setup(
         "Natural Language :: English",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
@@ -55,5 +54,5 @@ setup(
         "pinecone-alternative weaviate-alternative chroma-alternative qdrant-alternative "
         "redis-alternative data-mesh async asyncio rust realtime key-value cache montycat"
     ),
-    python_requires='>=3.9',
+    python_requires='>=3.10',
 )
