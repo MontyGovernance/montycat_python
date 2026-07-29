@@ -17,24 +17,24 @@ Documentation, tests, and CI only — no library code changed, so upgrading from
   real-time subscriptions returning `(task, stop_event)` on the `port + 1`
   subscription port, TLS via `tls=True`, and owner/access management with
   `create_owner`, `grant_to`, `revoke_from`, and `Permission`.
-- CI now installs the package and runs the test suite on Python 3.9 through
+- CI now installs the package and runs the test suite on Python 3.10 through
   3.13. The `test` job previously ran only a packaging dry run, so no test had
   ever executed in CI.
 - Changelog link in the README.
 
 ### Changed
 
+- **Declared Python support is now 3.10+, corrected from 3.9+.** The package has
+  never been importable on 3.9: `core/schema.py` and `store_classes/kv.py` both
+  import `types.UnionType` at module scope, which was added in 3.10, so any 3.9
+  install failed with `ImportError` on the first `import montycat`. The metadata
+  and the README FAQ advertised a version that never worked. Nothing that
+  currently runs is affected, and 3.9 reached end of life in October 2025.
 - The CI packaging dry run moved into its own `package` job, and the release job
   now depends on both `test` and `package`.
 
 ### Fixed
 
-- The test suite annotated a schema field as `str | None`, which is PEP 604
-  syntax evaluated at class-creation time and therefore requires Python 3.10,
-  even though `setup.py` declares support from 3.9. Now `Optional[str]`, so the
-  declared floor is real and testable.
-- The README quick start used the same 3.10-only syntax, which would fail for
-  any 3.9 reader copying it.
 - The governance section omitted the storage-type and semantic-model constraint
   bullets and the `policy_explain` / `policy_history` paragraph that the Dart,
   Node, and Rust clients document.

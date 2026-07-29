@@ -35,7 +35,6 @@ setup(
         "Natural Language :: English",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
@@ -55,5 +54,5 @@ setup(
         "pinecone-alternative weaviate-alternative chroma-alternative qdrant-alternative "
         "redis-alternative data-mesh async asyncio rust realtime key-value cache montycat"
     ),
-    python_requires='>=3.9',
+    python_requires='>=3.10',
 )

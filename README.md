@@ -84,8 +84,6 @@ pip install montycat
 
 ```python
 import asyncio
-from typing import Optional
-
 from montycat import Engine, Keyspace, Schema
 
 # setup connection
@@ -117,7 +115,7 @@ class SalesSchema(Schema):
 
 class ProductionSchema(Schema):
     items: list
-    work_order: Optional[str]  # or `str | None` on Python 3.10+
+    work_order: str | None
 
 async def main():
     # create store and keyspaces using runtime migration
@@ -318,7 +316,7 @@ the end of this document.
 - **Is Montycat a vector database or a NoSQL database?** Both — one engine. Store records and query them by *meaning* (vector / semantic search) or by key/schema, without running two systems.
 - **Do I need OpenAI or an embedding API?** No. Embeddings run on-device in the `montycat-semantic` server. No API keys, no per-query bill, no data egress.
 - **Is it a Pinecone / Weaviate / Chroma / Qdrant alternative?** Yes — self-hosted and open-source, with a NoSQL store built in.
-- **Which Python versions?** 3.9+ — fully async (`asyncio`).
+- **Which Python versions?** 3.10+ — fully async (`asyncio`).
 
 ## Data-mesh governance for shared and multi-tenant deployments
 
