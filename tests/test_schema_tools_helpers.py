@@ -1,4 +1,5 @@
 import unittest
+from typing import Optional
 
 import orjson
 
@@ -42,7 +43,10 @@ class SchemaTests(unittest.TestCase):
     class Event(Schema):
         name: str
         count: int
-        note: str | None
+        # Optional[...] rather than PEP 604 `str | None`: annotations are
+        # evaluated at class-creation time and `|` on types needs Python 3.10,
+        # while setup.py declares support from 3.9.
+        note: Optional[str]
 
     class LinkedEvent(Schema):
         parent: Pointer
