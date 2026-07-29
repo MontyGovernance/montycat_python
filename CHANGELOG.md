@@ -5,6 +5,40 @@ All notable changes to the Montycat Python client are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-07-29
+
+Documentation, tests, and CI only — no library code changed, so upgrading from
+1.1.0 is optional.
+
+### Added
+
+- README sections for behavior that was previously undocumented: response shape
+  (`{"status", "payload", "error"}` and u128 keys arriving as strings),
+  real-time subscriptions returning `(task, stop_event)` on the `port + 1`
+  subscription port, TLS via `tls=True`, and owner/access management with
+  `create_owner`, `grant_to`, `revoke_from`, and `Permission`.
+- CI now installs the package and runs the test suite on Python 3.9 through
+  3.13. The `test` job previously ran only a packaging dry run, so no test had
+  ever executed in CI.
+- Changelog link in the README.
+
+### Changed
+
+- The CI packaging dry run moved into its own `package` job, and the release job
+  now depends on both `test` and `package`.
+
+### Fixed
+
+- The test suite annotated a schema field as `str | None`, which is PEP 604
+  syntax evaluated at class-creation time and therefore requires Python 3.10,
+  even though `setup.py` declares support from 3.9. Now `Optional[str]`, so the
+  declared floor is real and testable.
+- The README quick start used the same 3.10-only syntax, which would fail for
+  any 3.9 reader copying it.
+- The governance section omitted the storage-type and semantic-model constraint
+  bullets and the `policy_explain` / `policy_history` paragraph that the Dart,
+  Node, and Rust clients document.
+
 ## [1.1.0] - 2026-07-28
 
 ### Added
