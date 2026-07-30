@@ -177,8 +177,24 @@ keys = await Sales.semantic_search_get_keys("Show all Bluetooth devices", limit=
 strong = await Sales.semantic_search_get_keys("Show all Bluetooth devices", limit=5, min_score=0.35)
 
 # Control the DB-wide switch (optional — it's already on):
-# switch the embedding model: 'minilm' | 'bge-small' (default) | 'bge-base' | 'e5-small'
-await connection.enable_semantic_search(model=SemanticModel.BGE_BASE)
+# Read back the model and backfill state actually assigned to a keyspace.
+status = await connection.get_semantic_status(
+    store="catalog", keyspace="products"
+)
+
+# Enable an unenrolled keyspace with an explicit model.
+await connection.enable_semantic_search(
+    model=SemanticModel.BGE_BASE,
+    store="catalog",
+    keyspace="products",
+)
+
+# Changing an enrolled keyspace is destructive and starts a full backfill.
+await connection.reembed_semantic_search(
+    SemanticModel.BGE_BASE,
+    store="catalog",
+    keyspace="products",
+)
 
 # turn it off (vectors are kept so re-enabling resumes instantly;
 # pass drop_vectors=True to also clear stored vectors)
