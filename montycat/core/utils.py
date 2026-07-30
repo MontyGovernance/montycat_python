@@ -40,7 +40,11 @@ async def send_data(host: str, port: int, query: bytes, callback=None, stop_even
 
 
         data = bytearray()
-        if b"subscribe" in query:
+        # A subscription is the call that supplies a callback — never inferred
+        # from the payload. Searching the request for b"subscribe" misread any
+        # record whose value merely contained that word, routing it into the
+        # streaming branch below, which never returns.
+        if callback is not None:
 
             while True:
                 if stop_event and stop_event.is_set():

@@ -5,6 +5,28 @@ All notable changes to the Montycat Python client are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.2] - 2026-07-29
+
+Fixes a hang that affects any request whose payload contains the word
+`subscribe`. **Upgrade from 1.1.1 is recommended.**
+
+### Fixed
+
+- **A request whose value contained the substring `subscribe` never returned.**
+  Subscription mode was detected with `b"subscribe" in query`, so a call like
+  `insert_value({"note": "please subscribe"})` was routed into the streaming
+  branch — which has no read timeout and loops forever. Any record mentioning
+  the word was affected, `unsubscribe` included.
+
+  A request is now a subscription because the caller supplied a `callback`. That
+  was always the real distinction — `_run_query` already chose the subscription
+  port on exactly that basis — so the two signals can no longer disagree.
+  Intent is no longer inferred from user data.
+
+  Present in every release before this one. The Rust and Dart clients carry the
+  same defect and are fixed in their matching releases; the Node client was
+  already correct.
+
 ## [1.1.1] - 2026-07-29
 
 Documentation, tests, and CI only — no library code changed, so upgrading from

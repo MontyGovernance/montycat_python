@@ -6,3 +6,4 @@ montycat.egg-info
 build
 test.py
 **.pyc
+CONNECTION_POOLING_PLAN.md
