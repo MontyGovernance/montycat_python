@@ -6,7 +6,7 @@ class inmemory_kv:
     persistent: bool = False
 
     @classmethod
-    async def do_snaphots_for_keyspace(cls):
+    async def do_snapshots_for_keyspace(cls):
         """
         Returns:
             True if the snapshot operation was successful. Class 'str' if the snapshot operation failed.
@@ -25,6 +25,15 @@ class inmemory_kv:
         })
 
         return await cls._run_query(query)
+
+    @classmethod
+    async def do_snaphots_for_keyspace(cls):
+        """Deprecated misspelled alias of :meth:`do_snapshots_for_keyspace`.
+
+        Kept so existing callers keep working; use the correctly spelled name.
+        """
+
+        return await cls.do_snapshots_for_keyspace()
 
     @classmethod
     async def clean_snapshots_for_keyspace(cls):

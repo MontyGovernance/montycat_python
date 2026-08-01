@@ -239,6 +239,9 @@ class Engine:
 
         Returns:
             Any: The server's response describing the enabled model and enrolled keyspaces.
+
+        An already-enrolled keyspace is not modified. Use
+        ``reembed_semantic_search`` to change its model or field.
         """
         if keyspace and not store:
             raise ValueError("A store is required when keyspace is specified")
@@ -270,8 +273,9 @@ class Engine:
         Args:
             drop_vectors (bool, optional): If True, also clear stored vectors — every
                                            keyspace's DB-wide, or the scoped store's when
-                                           `store` is set. Required before switching to a
-                                           different embedding model. Default False.
+                                           `store` is set. Use
+                                           ``reembed_semantic_search`` for model
+                                           replacement. Default False.
             store (str, optional): Restrict the disable to this store only. Default None
                                    (DB-wide).
 
@@ -288,6 +292,35 @@ class Engine:
         if keyspace:
             command.extend(["keyspace", keyspace])
 
+        return await self._execute_query_with_credentials(command)
+
+    async def get_semantic_status(
+        self,
+        store: Union[str, None] = None,
+        keyspace: Union[str, None] = None,
+    ) -> Any:
+        """Return actual global and per-keyspace semantic configuration."""
+        if keyspace and not store:
+            raise ValueError("A store is required when keyspace is specified")
+        command = ["get-semantic-status"]
+        if store:
+            command.extend(["store", store])
+        if keyspace:
+            command.extend(["keyspace", keyspace])
+        return await self._execute_query_with_credentials(command)
+
+    async def reembed_semantic_search(
+        self,
+        model: SemanticModel,
+        store: str,
+        keyspace: str,
+        field: Union[str, None] = None,
+    ) -> Any:
+        """Atomically replace a keyspace's vectors and start a full backfill."""
+        command = ["reembed-semantic-search", "model", model.value]
+        if field:
+            command.extend(["field", field])
+        command.extend(["store", store, "keyspace", keyspace])
         return await self._execute_query_with_credentials(command)
 
     async def policy_view(self, owner: Optional[str] = None, store: Optional[str] = None) -> Any:

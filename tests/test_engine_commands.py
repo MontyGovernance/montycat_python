@@ -132,10 +132,43 @@ class EngineCommandTests(unittest.IsolatedAsyncioTestCase):
                 "products",
             ],
         )
+        await self.assert_command(
+            self.engine.get_semantic_status(
+                store="catalog", keyspace="products"
+            ),
+            [
+                "get-semantic-status",
+                "store",
+                "catalog",
+                "keyspace",
+                "products",
+            ],
+        )
+        await self.assert_command(
+            self.engine.reembed_semantic_search(
+                SemanticModel.BGE_BASE,
+                store="catalog",
+                keyspace="products",
+                field="description",
+            ),
+            [
+                "reembed-semantic-search",
+                "model",
+                "bge-base",
+                "field",
+                "description",
+                "store",
+                "catalog",
+                "keyspace",
+                "products",
+            ],
+        )
         with self.assertRaisesRegex(ValueError, "store is required"):
             await self.engine.enable_semantic_search(keyspace="products")
         with self.assertRaisesRegex(ValueError, "store is required"):
             await self.engine.disable_semantic_search(keyspace="products")
+        with self.assertRaisesRegex(ValueError, "store is required"):
+            await self.engine.get_semantic_status(keyspace="products")
 
     async def test_policy_read_commands(self):
         await self.assert_command(
