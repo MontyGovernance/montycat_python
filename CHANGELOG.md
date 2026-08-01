@@ -5,6 +5,42 @@ All notable changes to the Montycat Python client are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.3] - 2026-07-31
+
+Adds a way to read the server's real semantic configuration, and a safe way to
+change an enrolled keyspace's embedding model. Additive — upgrading from 1.1.2
+requires no code changes.
+
+### Added
+
+- `Engine.get_semantic_status(store, keyspace)` returns the server's actual
+  semantic settings rather than what the caller assumed: the DB-wide switch and
+  default model, plus each enrolled keyspace's model, dimensions, field,
+  storage type, and whether a backfill is still pending.
+- `Engine.reembed_semantic_search(model, store, keyspace, field)` atomically
+  drops one keyspace's vectors, records the new configuration, and starts a
+  complete backfill. It reports the previous model alongside the new one, so a
+  caller can confirm what it replaced.
+- **`Keyspace.InMemory.do_snapshots_for_keyspace()`** — the method was spelled
+  `do_snaphots_for_keyspace` (missing `s`), the only client of the four to
+  misspell it. The correct spelling now exists; the old name is kept as a
+  deprecated alias so existing callers keep working.
+
+### Changed
+
+- Documented that `enable_semantic_search` leaves an already-enrolled keyspace
+  alone. It was never a way to switch models; `reembed_semantic_search` is.
+  Behavior is unchanged — only the documentation was misleading.
+- Corrected the `disable_semantic_search` docs: `drop_vectors` is not "required
+  before switching to a different embedding model". Use
+  `reembed_semantic_search`, which does not leave the keyspace unsearchable in
+  between.
+
+### Deprecated
+
+- `Keyspace.InMemory.do_snaphots_for_keyspace()`. It forwards to
+  `do_snapshots_for_keyspace()` and will be removed in a future major release.
+
 ## [1.1.2] - 2026-07-29
 
 Fixes a hang that affects any request whose payload contains the word
