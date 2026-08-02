@@ -3,6 +3,7 @@ from typing import Union, List, Optional, Any
 from urllib.parse import urlparse
 from .tools import Permission, PolicyCapability, PolicyKeyspaceType, SemanticModel, PolicyFormat
 from .utils import send_data
+from .pool import PoolConfig
 
 class Engine:
     """
@@ -17,7 +18,7 @@ class Engine:
     """
     VALID_PERMISSIONS = {'read', 'write', 'all'}
 
-    def __init__(self, host: str, port: int, username: str, password: str, store: Union[str, None] = None, tls: bool = False) -> None:
+    def __init__(self, host: str, port: int, username: str, password: str, store: Union[str, None] = None, tls: bool = False, pool: Union[PoolConfig, None] = None) -> None:
         """
         Initializes the Engine with the given connection parameters.
 
@@ -27,6 +28,15 @@ class Engine:
             username (str): Username for server authentication.
             password (str): Password for server authentication.
             store (str): Name of the data store to interact with.
+            tls (bool): Use TLS for the connection.
+            pool (PoolConfig, optional): Enables connection pooling for
+                request/response traffic. None (the default) opens a connection
+                per request, exactly as before.
+
+                Pools live in a module-level registry keyed by
+                ``(host, port, tls)``, so every keyspace pointing at the same
+                server shares one pool. Subscriptions are never pooled. Call
+                :func:`montycat.close_all_pools` before exit.
         """
         self.host = host
         self.port = port
@@ -34,9 +44,10 @@ class Engine:
         self.password = password
         self.store = store
         self.tls = tls
+        self.pool = pool
 
     @classmethod
-    def from_uri(cls, uri: str) -> 'Engine':
+    def from_uri(cls, uri: str, pool: Union[PoolConfig, None] = None) -> 'Engine':
         """
         Creates an Engine instance from a URI string in the format:
         montycat://username:password@host:port[/store]
@@ -70,7 +81,8 @@ class Engine:
             port=parsed.port,
             username=parsed.username,
             password=parsed.password,
-            store=store
+            store=store,
+            pool=pool
         )
 
     async def _execute_query_with_credentials(self, command: List[Any]) -> Any:
@@ -87,7 +99,7 @@ class Engine:
             "raw": command,
             "credentials": [self.username, self.password]
         })
-        return await send_data(self.host, self.port, query, tls=self.tls)
+        return await send_data(self.host, self.port, query, tls=self.tls, pool_config=self.pool)
 
     async def create_store(self) -> Any:
         """

@@ -243,6 +243,56 @@ keep them that way; Python `int` will hold one, but round-tripping through JSON 
 float will not. Invalid arguments raise `ValueError` before anything touches the network;
 server-side failures come back in `error` with `"status": False`.
 
+## 🔄 Connection Pooling
+
+By default every request opens a TCP connection, sends, reads one response, and closes.
+Reuse the connection instead and the handshake disappears from every call after the
+first. The win scales with how much of your latency is connection setup: large for a
+chatty service issuing many small reads, larger still over a network — where the
+handshake costs a full round trip before the query is even sent — and larger again with
+TLS.
+
+Pooling is opt-in. One new argument, and no call site changes:
+
+```python
+from montycat import Engine, PoolConfig, close_all_pools
+
+connection = Engine(
+    host="127.0.0.1", port=21210, username="USER", password="12345",
+    store="Departments",
+    pool=PoolConfig(),          # ← the only new argument
+)
+
+Sales.connect_engine(connection)
+await Sales.insert_value(sale)  # unchanged
+
+await close_all_pools()         # before exit
+```
+
+Tune it if you need to:
+
+```python
+pool = PoolConfig(max_idle=4, idle_timeout=15.0)   # defaults: 8, 30.0
+```
+
+**Pools are shared per `(host, port, tls)`.** They live in a module-level registry, not on
+the `Engine`, because `connect_engine` copies scalars off the engine and discards it. Two
+keyspace classes pointing at the same server therefore share one pool rather than each
+opening its own. `tls` is part of the key — a plaintext and a TLS connection to one
+address are not interchangeable.
+
+**Keep `max_idle` modest.** An idle pooled connection still holds one of the engine's
+connection permits. The defaults are deliberately small; raise them only after measuring
+with `queue_depths` under realistic load.
+
+**Call `close_all_pools()` before exit**, otherwise idle sockets linger until the process
+dies.
+
+Subscriptions are never pooled — they are long-lived, stream many responses to one
+request, and live on their own port. A connection is held exclusively for one
+request/response, so concurrent `asyncio.gather` calls each get their own rather than
+interleaving writes on one socket.
+
 ## 📡 Real-Time Subscriptions
 
 Subscribe to one key or to a whole keyspace and get pushed every change — the reactive

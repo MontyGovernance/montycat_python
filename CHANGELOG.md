@@ -5,7 +5,71 @@ All notable changes to the Montycat Python client are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.1.3] - 2026-07-31
+## [1.2.0]
+
+Opt-in connection pooling, plus two framing fixes that pooling depends on, and
+the semantic-configuration commands from the previous release line.
+
+Additive — upgrading needs no code changes, with one behavior change: a
+subscription callback now fires once per frame (see Fixed).
+
+### Added
+
+- **Opt-in connection pooling.** Every request previously opened a TCP
+  connection, sent one request, read one response, and closed. Reuse removes the
+  handshake from every call after the first:
+
+  ```python
+  from montycat import Engine, PoolConfig, close_all_pools
+
+  connection = Engine(
+      host="127.0.0.1", port=21210, username="USER", password="12345",
+      store="Departments",
+      pool=PoolConfig(),        # the only new argument; omit for today's behavior
+  )
+
+  Sales.connect_engine(connection)
+  await Sales.insert_value(sale)     # unchanged
+
+  await close_all_pools()            # before exit
+  ```
+
+  Pools live in a module-level registry keyed by `(host, port, tls)`, so every
+  keyspace class pointing at one server shares a single pool. `connect_engine`
+  copies scalars off the engine and discards it, so a pool attached to the
+  engine object could never have been reached. `tls` is part of the key because
+  a plaintext and a TLS connection to one address are not interchangeable.
+
+  Disabled by default: an idle pooled connection still holds one of the engine's
+  connection permits, so the bound is deliberately conservative (`max_idle=8`,
+  `idle_timeout=30.0`). Subscriptions are never pooled, and a connection is held
+  exclusively for one request/response — two coroutines interleaving writes on
+  one socket would deliver a response to the wrong caller. A cancelled request
+  closes its connection rather than returning it, since a cancelled task may
+  have left an unread response in the socket.
+
+  Exported `PoolConfig` and `close_all_pools` from the package root.
+
+### Fixed
+
+- **A subscription frame could be delivered concatenated with the next one, or
+  dropped entirely.** The reader appended raw socket chunks and invoked the
+  callback with whatever had accumulated, then cleared the buffer. Two frames
+  arriving in one chunk were delivered as a single event, and a chunk ending
+  mid-frame after a complete one had that partial frame discarded by the clear.
+  Frames are now read one at a time and the callback fires once per frame.
+
+- **A response kept the bytes that followed its newline.** The read loop stopped
+  once a chunk contained `\n` but appended the whole chunk, so anything the
+  server had already sent toward the *next* response was parsed as part of this
+  one. Harmless while every connection was discarded immediately; fatal on a
+  pooled connection. Responses now use `StreamReader.readline()`, which leaves
+  the remainder in the reader's own buffer, travelling with the connection.
+
+- **EOF before any response byte returned an empty success.** Callers received
+  something they would then try to parse. It now surfaces as an error.
+
+## [1.1.3]
 
 Adds a way to read the server's real semantic configuration, and a safe way to
 change an enrolled keyspace's embedding model. Additive — upgrading from 1.1.2
@@ -41,7 +105,7 @@ requires no code changes.
 - `Keyspace.InMemory.do_snaphots_for_keyspace()`. It forwards to
   `do_snapshots_for_keyspace()` and will be removed in a future major release.
 
-## [1.1.2] - 2026-07-29
+## [1.1.2]
 
 Fixes a hang that affects any request whose payload contains the word
 `subscribe`. **Upgrade from 1.1.1 is recommended.**
@@ -63,7 +127,7 @@ Fixes a hang that affects any request whose payload contains the word
   same defect and are fixed in their matching releases; the Node client was
   already correct.
 
-## [1.1.1] - 2026-07-29
+## [1.1.1]
 
 Documentation, tests, and CI only — no library code changed, so upgrading from
 1.1.0 is optional.
@@ -97,7 +161,7 @@ Documentation, tests, and CI only — no library code changed, so upgrading from
   bullets and the `policy_explain` / `policy_history` paragraph that the Dart,
   Node, and Rust clients document.
 
-## [1.1.0] - 2026-07-28
+## [1.1.0]
 
 ### Added
 
@@ -144,7 +208,7 @@ Documentation, tests, and CI only — no library code changed, so upgrading from
   governance error/payload preservation through `recursive_parse_orjson` and permission
   token normalization. Not part of the distributed package.
 
-## [1.0.7] - 2026-07-20
+## [1.0.7]
 
 ### Added
 
@@ -154,7 +218,7 @@ Documentation, tests, and CI only — no library code changed, so upgrading from
   `filters` raises `ValueError` — use the unfiltered methods instead.
 - `min_score` threading through the shared semantic search path.
 
-## [1.0.6] - 2026-07-19
+## [1.0.6]
 
 ### Changed
 
@@ -162,7 +226,7 @@ Documentation, tests, and CI only — no library code changed, so upgrading from
   `{'__key__': ..., '__score__': ...}`, and the value-returning variants add
   `'__value__'`.
 
-## [1.0.5] - 2026-07-16
+## [1.0.5]
 
 ### Added
 
@@ -175,7 +239,7 @@ Documentation, tests, and CI only — no library code changed, so upgrading from
   `insert_custom_key_value`, `insert_bulk`, `update_value`, `update_bulk`, `delete_key`,
   `delete_bulk`.
 
-## [1.0.4] - 2026-05-12
+## [1.0.4]
 
 ### Changed
 
@@ -186,13 +250,13 @@ Documentation, tests, and CI only — no library code changed, so upgrading from
 - `setup.py` became the single source of truth for package metadata; `build_and_push.sh`
   derives the version from it.
 
-## [1.0.1] - 2026-02-04
+## [1.0.1]
 
 ### Added
 
 - Nullable schema fields.
 
-## [1.0.0] - 2025-10-17
+## [1.0.0]
 
 ### Added
 

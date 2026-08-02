@@ -10,6 +10,9 @@ import asyncio
 
 class generic_kv:
     store: str = ""
+    # Set by connect_engine. Defaults to None so a keyspace used before
+    # connecting still resolves the attribute and simply connects per request.
+    pool = None
 
     @classmethod
     async def subscribe(cls, key: Union[str, None] = None, custom_key: Union[str, None] = None, callback=None, subscription_port: Union[int, None] = None):
@@ -50,7 +53,7 @@ class generic_kv:
     @classmethod
     async def _run_query(cls, query: str, callback=None, stop_event: Union[asyncio.Event, None] = None, subscription_port: Union[int, None] = None):
         port = subscription_port if subscription_port else (cls.port + 1 if callback else cls.port)
-        return await send_data(cls.host, port, query, callback=callback, stop_event=stop_event, tls=cls.tls)
+        return await send_data(cls.host, port, query, callback=callback, stop_event=stop_event, tls=cls.tls, pool_config=cls.pool)
 
     @classmethod
     async def enforce_schema(cls, schema):
@@ -586,6 +589,10 @@ class generic_kv:
         cls.port = engine.port
         cls.store = engine.store
         cls.tls = engine.tls
+        # Only the *config* is copied. The pool itself lives in a module-level
+        # registry keyed by (host, port, tls), so every keyspace class pointing
+        # at one server shares a single pool rather than each getting its own.
+        cls.pool = getattr(engine, "pool", None)
 
     @classmethod
     async def remove_keyspace(cls):
