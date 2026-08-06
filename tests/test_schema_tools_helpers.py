@@ -5,6 +5,7 @@ import orjson
 from montycat.core.schema import Schema
 from montycat.core.tools import Limit, Permission, Pointer, Timestamp
 from montycat.core.utils import is_u128, recursive_parse_orjson
+from montycat.store_classes.kv import generic_kv
 from montycat.store_functions.store_generic_functions import (
     convert_custom_key,
     convert_custom_keys,
@@ -153,6 +154,9 @@ class UtilityTests(unittest.TestCase):
                 semantic_query="launch",
                 min_score=0.7,
                 semantic_filter={"created": Timestamp(after=10)},
+                semantic_vector=[0.1, 0.2],
+                semantic_vectors={"7": [0.3, 0.4]},
+                semantic_vector_list=[[0.5, 0.6]],
                 wait_for_index=True,
             )
         )
@@ -162,6 +166,9 @@ class UtilityTests(unittest.TestCase):
         self.assertEqual(query["search_criteria"], "launch")
         self.assertEqual(query["min_score"], 0.7)
         self.assertTrue(query["wait_for_index"])
+        self.assertEqual(query["semantic_vector"], [0.1, 0.2])
+        self.assertEqual(query["semantic_vectors"], {"7": [0.3, 0.4]})
+        self.assertEqual(query["semantic_vector_list"], [[0.5, 0.6]])
         self.assertEqual(orjson.loads(query["value"])["parent"], ["events", "abc"])
         self.assertEqual(
             orjson.loads(query["semantic_filter"]),
@@ -181,6 +188,18 @@ class UtilityTests(unittest.TestCase):
                     {"schema": "Second", "value": 2},
                 ],
             )
+
+
+class SemanticValidationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_rejects_missing_or_invalid_semantic_vectors_before_networking(self):
+        with self.assertRaisesRegex(ValueError, "No query text"):
+            await generic_kv.semantic_search_get_keys("   ")
+
+        for vector in ([], [float("nan")], [True]):
+            with self.subTest(vector=vector), self.assertRaisesRegex(
+                ValueError, "finite numbers"
+            ):
+                await generic_kv.semantic_search_get_keys("", vector=vector)
 
 
 if __name__ == "__main__":

@@ -7,6 +7,7 @@ from typing import Union, get_args, get_origin
 from types import UnionType
 import orjson
 import asyncio
+import math
 
 class generic_kv:
     store: str = ""
@@ -289,7 +290,7 @@ class generic_kv:
         return await cls._run_query(query)
 
     @classmethod
-    async def update_bulk(cls, bulk_keys_values: dict = {}, bulk_custom_keys_values: dict = {}, wait_for_index: Union[bool, None] = None):
+    async def update_bulk(cls, bulk_keys_values: dict = {}, bulk_custom_keys_values: dict = {}, vectors: Union[dict, None] = None, custom_vectors: Union[dict, None] = None, wait_for_index: Union[bool, None] = None):
         """
         Update multiple keys in bulk with the provided new values. If custom keys are provided,
         they will be converted before being applied to the bulk update.
@@ -300,6 +301,10 @@ class generic_kv:
             bulk_custom_keys_values (dict, optional): A dictionary of custom keys and their new values to be updated.
                                                       These custom keys will be converted before being included in the update.
                                                       Default is an empty dictionary.
+            vectors (dict, optional): Numeric keys mapped to precomputed vectors.
+            custom_vectors (dict, optional): Custom keys mapped to precomputed vectors;
+                                             keys are converted before transmission.
+            wait_for_index (bool, optional): Override for waiting until indexes are updated.
 
         Returns:
             bool | str: Returns a boolean indicating success (True) or failure (False), or a string error message
@@ -316,7 +321,8 @@ class generic_kv:
             bulk_custom_keys_values = convert_custom_keys_values(bulk_custom_keys_values)
             bulk_keys_values = {**bulk_keys_values, **bulk_custom_keys_values}
 
-        query = convert_to_binary_query(cls, command="update_bulk", bulk_keys_values=bulk_keys_values, wait_for_index=wait_for_index)
+        semantic_vectors = {**(vectors or {}), **convert_custom_keys_values(custom_vectors or {})}
+        query = convert_to_binary_query(cls, command="update_bulk", bulk_keys_values=bulk_keys_values, semantic_vectors=semantic_vectors, wait_for_index=wait_for_index)
         return await cls._run_query(query)
 
     @classmethod
@@ -361,20 +367,23 @@ class generic_kv:
         return await cls._run_query(query)
 
     @classmethod
-    async def _semantic_search(cls, query: str, limit: Union[int, list], min_score: Union[float, None], filters: Union[dict, None], with_pointers: bool, key_included: bool, pointers_metadata: bool):
+    async def _semantic_search(cls, query: str, vector: Union[list[float], None], limit: Union[int, list], min_score: Union[float, None], filters: Union[dict, None], with_pointers: bool, key_included: bool, pointers_metadata: bool):
         """Shared core for `semantic_search_get_keys` / `semantic_search_get_values`.
 
         The server command is the same either way (`semantic_search`); the two
         public methods differ only in which value-inclusion flags they pass, so
         the wire call lives here once.
         """
-        if not query or not query.strip():
+        if vector is None and (not query or not query.strip()):
             raise ValueError("No query text provided for semantic search.")
+        if vector is not None and (not vector or any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) for v in vector)):
+            raise ValueError("Semantic vector must contain only finite numbers.")
 
         query_binary = convert_to_binary_query(
             cls,
             command="semantic_search",
             semantic_query=query,
+            semantic_vector=vector,
             limit_output=handle_limit(limit),
             min_score=min_score,
             semantic_filter=filters,
@@ -385,7 +394,7 @@ class generic_kv:
         return await cls._run_query(query_binary)
 
     @classmethod
-    async def semantic_search_get_keys(cls, query: str, limit: Union[int, list] = 0, min_score: Union[float, None] = None):
+    async def semantic_search_get_keys(cls, query: str, vector: Union[list[float], None] = None, limit: Union[int, list] = 0, min_score: Union[float, None] = None):
         """
         Semantic (vector similarity) search returning ranked keys only.
 
@@ -401,6 +410,9 @@ class generic_kv:
 
         Args:
             query (str): The natural-language query text to embed and search for.
+            vector (list[float], optional): A precomputed query vector. When supplied,
+                                           server-side text embedding is bypassed and
+                                           query may be empty.
             limit (int | list, optional): The maximum number of ranked results to return.
                                           An int is treated as the top-k; a two-item list
                                           [start, stop] paginates the ranked hits. Default 0,
@@ -413,12 +425,12 @@ class generic_kv:
                         Returns a string error message if the query fails.
 
         Raises:
-            ValueError: If no query text is provided.
+            ValueError: If neither query text nor a valid vector is provided.
         """
-        return await cls._semantic_search(query, limit, min_score, None, False, False, False)
+        return await cls._semantic_search(query, vector, limit, min_score, None, False, False, False)
 
     @classmethod
-    async def semantic_search_get_values(cls, query: str, limit: Union[int, list] = 0, min_score: Union[float, None] = None, with_pointers: bool = False, pointers_metadata: bool = False):
+    async def semantic_search_get_values(cls, query: str, vector: Union[list[float], None] = None, limit: Union[int, list] = 0, min_score: Union[float, None] = None, with_pointers: bool = False, pointers_metadata: bool = False):
         """
         Semantic (vector similarity) search returning ranked hits with their values.
 
@@ -433,6 +445,9 @@ class generic_kv:
 
         Args:
             query (str): The natural-language query text to embed and search for.
+            vector (list[float], optional): A precomputed query vector. When supplied,
+                                           server-side text embedding is bypassed and
+                                           query may be empty.
             limit (int | list, optional): The maximum number of ranked results to return.
                                           An int is treated as the top-k; a two-item list
                                           [start, stop] paginates the ranked hits. Default 0,
@@ -451,12 +466,12 @@ class generic_kv:
                         plus the score. Returns a string error message if the query fails.
 
         Raises:
-            ValueError: If no query text is provided.
+            ValueError: If neither query text nor a valid vector is provided.
         """
-        return await cls._semantic_search(query, limit, min_score, None, with_pointers, True, pointers_metadata)
+        return await cls._semantic_search(query, vector, limit, min_score, None, with_pointers, True, pointers_metadata)
 
     @classmethod
-    async def semantic_search_get_keys_where(cls, query: str, filters: dict, limit: Union[int, list] = 0, min_score: Union[float, None] = None):
+    async def semantic_search_get_keys_where(cls, query: str, filters: dict, vector: Union[list[float], None] = None, limit: Union[int, list] = 0, min_score: Union[float, None] = None):
         """
         Hybrid semantic search returning ranked keys only, restricted by a metadata filter.
 
@@ -472,6 +487,9 @@ class generic_kv:
         Args:
             query (str): The natural-language query text to embed and search for.
             filters (dict): Metadata criteria, same shape as `lookup_keys_where`.
+            vector (list[float], optional): A precomputed query vector. When supplied,
+                                           server-side text embedding is bypassed and
+                                           query may be empty.
             limit (int | list, optional): The maximum number of ranked results to return.
                                           An int is treated as the top-k; a two-item list
                                           [start, stop] paginates the ranked hits. Default 0,
@@ -484,14 +502,14 @@ class generic_kv:
                         Returns a string error message if the query fails.
 
         Raises:
-            ValueError: If no query text or no filters are provided.
+            ValueError: If neither query text nor a valid vector is provided, or filters are empty.
         """
         if not filters:
             raise ValueError("No filters provided for hybrid semantic search.")
-        return await cls._semantic_search(query, limit, min_score, filters, False, False, False)
+        return await cls._semantic_search(query, vector, limit, min_score, filters, False, False, False)
 
     @classmethod
-    async def semantic_search_get_values_where(cls, query: str, filters: dict, limit: Union[int, list] = 0, min_score: Union[float, None] = None, with_pointers: bool = False, pointers_metadata: bool = False):
+    async def semantic_search_get_values_where(cls, query: str, filters: dict, vector: Union[list[float], None] = None, limit: Union[int, list] = 0, min_score: Union[float, None] = None, with_pointers: bool = False, pointers_metadata: bool = False):
         """
         Hybrid semantic search returning ranked hits with their values, restricted by a metadata filter.
 
@@ -507,6 +525,9 @@ class generic_kv:
         Args:
             query (str): The natural-language query text to embed and search for.
             filters (dict): Metadata criteria, same shape as `lookup_keys_where`.
+            vector (list[float], optional): A precomputed query vector. When supplied,
+                                           server-side text embedding is bypassed and
+                                           query may be empty.
             limit (int | list, optional): The maximum number of ranked results to return.
                                           An int is treated as the top-k; a two-item list
                                           [start, stop] paginates the ranked hits. Default 0,
@@ -525,11 +546,11 @@ class generic_kv:
                         plus the score. Returns a string error message if the query fails.
 
         Raises:
-            ValueError: If no query text or no filters are provided.
+            ValueError: If neither query text nor a valid vector is provided, or filters are empty.
         """
         if not filters:
             raise ValueError("No filters provided for hybrid semantic search.")
-        return await cls._semantic_search(query, limit, min_score, filters, with_pointers, True, pointers_metadata)
+        return await cls._semantic_search(query, vector, limit, min_score, filters, with_pointers, True, pointers_metadata)
 
     @classmethod
     async def list_all_depending_keys(cls, key: Union[str, None] = None, custom_key: Union[str, None] = None):

@@ -27,11 +27,12 @@ class persistent_kv:
         return await cls._run_query(query)
 
     @classmethod
-    async def insert_custom_key_value(cls, custom_key: str, value: dict, wait_for_index: Union[bool, None] = None):
+    async def insert_custom_key_value(cls, custom_key: str, value: dict, vector: Union[list[float], None] = None, wait_for_index: Union[bool, None] = None):
         """
         Args:
             custom_key: A custom key to insert into the store. This key can be used to retrieve the value later.
             value: A Python class / dict to insert into the store.
+            vector: Optional precomputed vector that bypasses server-side embedding.
             wait_for_index: Per-request synchronous-index override; None (default) uses the DB-wide default.
         Returns:
             True if the insert operation was successful. Class 'str' if the insert operation failed.
@@ -43,14 +44,15 @@ class persistent_kv:
             raise ValueError("No custom key provided for insertion.")
 
         custom_key_converted = convert_custom_key(custom_key)
-        query = convert_to_binary_query(cls, command="insert_custom_key_value", key=custom_key_converted, value=value, wait_for_index=wait_for_index)
+        query = convert_to_binary_query(cls, command="insert_custom_key_value", key=custom_key_converted, value=value, semantic_vector=vector, wait_for_index=wait_for_index)
         return await cls._run_query(query)
 
     @classmethod
-    async def insert_value(cls, value: dict, wait_for_index: Union[bool, None] = None):
+    async def insert_value(cls, value: dict, vector: Union[list[float], None] = None, wait_for_index: Union[bool, None] = None):
         """
         Args:
             value: A Python class / dict to insert into the store.
+            vector: Optional precomputed vector that bypasses server-side embedding.
             wait_for_index: Per-request synchronous-index override; None (default) uses the DB-wide default.
         Returns:
             Key number if the insert operation was successful. Class 'str' if the insert operation failed.
@@ -58,11 +60,11 @@ class persistent_kv:
         if not value:
             raise ValueError("No value provided for insertion.")
 
-        query = convert_to_binary_query(cls, command="insert_value", value=value, wait_for_index=wait_for_index)
+        query = convert_to_binary_query(cls, command="insert_value", value=value, semantic_vector=vector, wait_for_index=wait_for_index)
         return await cls._run_query(query)
 
     @classmethod
-    async def update_value(cls, key: Union[str, None] = None, custom_key: Union[str, None] = None, wait_for_index: Union[bool, None] = None, **filters):
+    async def update_value(cls, key: Union[str, None] = None, custom_key: Union[str, None] = None, vector: Union[list[float], None] = None, wait_for_index: Union[bool, None] = None, **filters):
         """
         Update the value associated with a given key in the store. If a custom key is provided,
         it will be converted to the appropriate format before updating.
@@ -73,6 +75,7 @@ class persistent_kv:
                                        which will be ignored if custom_key is provided.
             custom_key (str, optional): The custom key whose associated value needs to be updated.
                                         Default is an empty string.
+            vector (list[float], optional): Optional replacement precomputed vector.
             filters (dict): A dictionary of field-value pairs that need to be updated in the store.
 
         Returns:
@@ -91,14 +94,15 @@ class persistent_kv:
         if not key:
             raise ValueError("No key provided")
 
-        query = convert_to_binary_query(cls, command="update_value", key=key, value=filters, wait_for_index=wait_for_index)
+        query = convert_to_binary_query(cls, command="update_value", key=key, value=filters, semantic_vector=vector, wait_for_index=wait_for_index)
         return await cls._run_query(query)
 
     @classmethod
-    async def insert_bulk(cls, bulk_values: list, wait_for_index: Union[bool, None] = None):
+    async def insert_bulk(cls, bulk_values: list, vectors: Union[list[list[float]], None] = None, wait_for_index: Union[bool, None] = None):
         """
         Args:
             bulk_values: A list of Python objects to insert into the store.
+            vectors: Optional precomputed vectors paired by position with bulk_values.
             wait_for_index: Per-request synchronous-index override; None (default) uses the DB-wide default.
         Returns:
             True if the bulk insert operation was successful.
@@ -108,7 +112,7 @@ class persistent_kv:
         if not bulk_values:
             raise ValueError("No values provided for bulk insertion.")
 
-        query = convert_to_binary_query(cls, command="insert_bulk", bulk_values=bulk_values, wait_for_index=wait_for_index)
+        query = convert_to_binary_query(cls, command="insert_bulk", bulk_values=bulk_values, semantic_vector_list=vectors, wait_for_index=wait_for_index)
         return await cls._run_query(query)
 
     @classmethod
