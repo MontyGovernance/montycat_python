@@ -50,6 +50,41 @@ subscription callback now fires once per frame (see Fixed).
 
   Exported `PoolConfig` and `close_all_pools` from the package root.
 
+- **Precomputed vectors.** Vectors produced elsewhere — another model, a batch
+  pipeline, an existing embedding store — can now be supplied directly, and the
+  server skips embedding entirely. Requires a Montycat Semantic server 1.3.0 or
+  newer.
+
+  Writes take an optional `vector`, applied after the write succeeds:
+
+  ```python
+  await Docs.insert_value(
+      value={"text": "a document"},
+      vector=my_embedding,          # list[float], omit for server-side embedding
+  )
+  ```
+
+  Available on `insert_value`, `insert_custom_key_value`, and `update_value` for
+  both in-memory and persistent keyspaces. `insert_bulk` takes
+  `vectors: list[list[float]]`, paired with `bulk_values` **by position**;
+  `update_bulk` takes `vectors` for numeric keys and `custom_vectors` for custom
+  keys.
+
+  Search takes an optional query `vector`, which bypasses text embedding. The
+  query string may be empty when one is supplied:
+
+  ```python
+  await Docs.semantic_search_get_values("", vector=my_query_embedding)
+  ```
+
+  Available on `semantic_search_get_keys`, `semantic_search_get_keys_where`,
+  `semantic_search_get_values`, and `semantic_search_get_values_where`.
+
+  Dimensions must match the keyspace's enrolled model; the server validates
+  before anything reaches the index. A supplied vector is not overwritten by
+  background embedding — a later ordinary write to the same item clears that
+  protection and re-embeds from text.
+
 ### Fixed
 
 - **A subscription frame could be delivered concatenated with the next one, or
