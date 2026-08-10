@@ -121,6 +121,9 @@ def convert_to_binary_query(
     semantic_query: Union[str, None] = None,
     min_score: Union[float, None] = None,
     semantic_filter: Union[dict, None] = None,
+    semantic_vector: Union[List[float], None] = None,
+    semantic_vectors: Dict[str, List[float]] = None,
+    semantic_vector_list: List[List[float]] = None,
     wait_for_index: Union[bool, None] = None,
 ) -> bytes:
     """
@@ -136,6 +139,9 @@ def convert_to_binary_query(
         bulk_keys: List of keys for bulk operations
         bulk_keys_values: Dictionary of keys and values for bulk operations
         with_pointers: Flag to include pointers
+        semantic_vector: Optional precomputed vector for a single write or query
+        semantic_vectors: Existing keys mapped to precomputed vectors for bulk updates
+        semantic_vector_list: Precomputed vectors paired with bulk values by position
 
     Returns:
         bytes: Binary-encoded query in appropriate format
@@ -224,6 +230,13 @@ def convert_to_binary_query(
         query_dict["semantic_filter"] = normalize_bools(
             handle_timestamps_and_pointers(semantic_filter)
         )
+
+    if semantic_vector is not None:
+        query_dict["semantic_vector"] = semantic_vector
+    if semantic_vectors:
+        query_dict["semantic_vectors"] = semantic_vectors
+    if semantic_vector_list:
+        query_dict["semantic_vector_list"] = semantic_vector_list
 
     # Per-request wait_for_index override for persistent writes; omit when None
     # so the server falls back to its DB-wide default (existing wire unchanged).

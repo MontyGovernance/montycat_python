@@ -224,6 +224,43 @@ matching_values = await Sales.semantic_search_get_values_where(
 # value hits: {"__key__", "__score__", "__value__"}
 ```
 
+### Bring your own vectors
+
+If you already have embeddings — from another model, a batch pipeline, or an
+existing vector store — supply them directly and the server skips embedding.
+Needs a Montycat Semantic server 1.3.0 or newer.
+
+```python
+# Writing: pass `vector` alongside the value.
+await Sales.insert_value(
+    value={"text": "The Voyager probes left the heliosphere."},
+    vector=my_embedding,                     # list[float]
+)
+
+# Bulk: paired with bulk_values by position.
+await Sales.insert_bulk(
+    bulk_values=[doc1, doc2],
+    vectors=[embedding1, embedding2],
+)
+
+# Searching: pass a query vector; the query string may be empty.
+hits = await Sales.semantic_search_get_values("", vector=my_query_embedding, limit=10)
+```
+
+`vector` is also accepted by `insert_custom_key_value` and `update_value`, and
+`update_bulk` takes `vectors` for numeric keys plus `custom_vectors` for custom
+keys. All four `semantic_search_*` methods accept a query vector.
+
+Dimensions must match the keyspace's enrolled model — the server validates
+before anything reaches the index, so a bad entry in a batch cannot leave the
+graph and the durable store disagreeing. A vector you supplied will not be
+overwritten by background embedding; a later ordinary write to that item clears
+the protection and re-embeds from its text, which is when re-embedding is what
+you want.
+
+Mixing is fine: items with supplied vectors and items the server embeds can
+live in one keyspace, as long as every vector comes from the same model.
+
 ## 📨 Response Shape
 
 Every call returns the same envelope, so there is one thing to check everywhere:
@@ -242,6 +279,56 @@ list for lookups and semantic searches. **Keys are u128 and always arrive as str
 keep them that way; Python `int` will hold one, but round-tripping through JSON or a
 float will not. Invalid arguments raise `ValueError` before anything touches the network;
 server-side failures come back in `error` with `"status": False`.
+
+## 🔄 Connection Pooling
+
+By default every request opens a TCP connection, sends, reads one response, and closes.
+Reuse the connection instead and the handshake disappears from every call after the
+first. The win scales with how much of your latency is connection setup: large for a
+chatty service issuing many small reads, larger still over a network — where the
+handshake costs a full round trip before the query is even sent — and larger again with
+TLS.
+
+Pooling is opt-in. One new argument, and no call site changes:
+
+```python
+from montycat import Engine, PoolConfig, close_all_pools
+
+connection = Engine(
+    host="127.0.0.1", port=21210, username="USER", password="12345",
+    store="Departments",
+    pool=PoolConfig(),          # ← the only new argument
+)
+
+Sales.connect_engine(connection)
+await Sales.insert_value(sale)  # unchanged
+
+await close_all_pools()         # before exit
+```
+
+Tune it if you need to:
+
+```python
+pool = PoolConfig(max_idle=4, idle_timeout=15.0)   # defaults: 8, 30.0
+```
+
+**Pools are shared per `(host, port, tls)`.** They live in a module-level registry, not on
+the `Engine`, because `connect_engine` copies scalars off the engine and discards it. Two
+keyspace classes pointing at the same server therefore share one pool rather than each
+opening its own. `tls` is part of the key — a plaintext and a TLS connection to one
+address are not interchangeable.
+
+**Keep `max_idle` modest.** An idle pooled connection still holds one of the engine's
+connection permits. The defaults are deliberately small; raise them only after measuring
+with `queue_depths` under realistic load.
+
+**Call `close_all_pools()` before exit**, otherwise idle sockets linger until the process
+dies.
+
+Subscriptions are never pooled — they are long-lived, stream many responses to one
+request, and live on their own port. A connection is held exclusively for one
+request/response, so concurrent `asyncio.gather` calls each get their own rather than
+interleaving writes on one socket.
 
 ## 📡 Real-Time Subscriptions
 
