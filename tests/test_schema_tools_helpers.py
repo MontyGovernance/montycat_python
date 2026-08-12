@@ -93,6 +93,10 @@ class UtilityTests(unittest.TestCase):
         self.assertFalse(is_u128("123"))
 
     def test_key_pointer_boolean_and_limit_helpers(self):
+        # Hash explicit UTF-8 bytes so custom keys work with every supported
+        # xxhash release while preserving their existing server-side IDs.
+        self.assertEqual(convert_custom_key("a"), "1426945110")
+        self.assertEqual(convert_custom_key("café"), "1071462849")
         self.assertEqual(convert_custom_keys(["a", 2]), [
             convert_custom_key("a"),
             convert_custom_key(2),

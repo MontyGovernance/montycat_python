@@ -5,6 +5,18 @@ All notable changes to the Montycat Python client are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1]
+
+### Fixed
+
+- Encode custom keys as UTF-8 before hashing them. This preserves the same key
+  hashes while supporting `xxhash` releases that require bytes instead of
+  accepting Python strings.
+- Restore support for response frames larger than asyncio's 64 KiB default
+  without imposing a new fixed ceiling. Large policy-history and bulk-read
+  responses are accumulated safely while preserving frame boundaries in
+  direct, pooled, and subscription modes.
+
 ## [1.2.0]
 
 Opt-in connection pooling, plus two framing fixes that pooling depends on, and

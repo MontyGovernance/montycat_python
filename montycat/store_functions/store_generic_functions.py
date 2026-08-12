@@ -16,7 +16,7 @@ def convert_custom_key(key: Union[int, str]) -> int:
     This function ensures that any input key, whether integer or string, is consistently
     hashed into a unique integer for use as a custom key in further queries.
     """
-    return str(xxhash.xxh32(str(key)).intdigest())
+    return str(xxhash.xxh32(str(key).encode("utf-8")).intdigest())
 
 def convert_custom_keys(keys: list) -> list:
     """

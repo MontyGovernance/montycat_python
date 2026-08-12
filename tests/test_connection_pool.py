@@ -210,6 +210,29 @@ class PoolTests(unittest.TestCase):
         self.assertEqual(first.get("payload"), "response-0")
         self.assertEqual(second.get("payload"), "response-1")
 
+    def test_large_response_frame_in_direct_and_pooled_modes(self):
+        # Larger than the temporary 16 MiB workaround and asyncio's 64 KiB
+        # default. The client historically accepted responses of this size.
+        payload = "x" * (17 * 1024 * 1024)
+        response = (
+            b'{"status":true,"payload":"'
+            + payload.encode()
+            + b'","error":null}\n'
+        )
+
+        async def scenario(pool_config):
+            async with StubServer(responder=lambda _i, _s: response) as server:
+                return await send_data(
+                    server.host, server.port, b"{}", pool_config=pool_config
+                )
+
+        for mode, config in (("direct", None), ("pooled", PoolConfig())):
+            with self.subTest(mode=mode):
+                result = run(scenario(config))
+                self.assertIsInstance(result, dict)
+                self.assertEqual(len(result.get("payload", "")), len(payload))
+                self.assertEqual(result.get("payload"), payload)
+
     def test_two_frames_in_one_write_do_not_merge(self):
         # A reader that stops when its buffer merely *contains* a newline would
         # swallow frame two into frame one — on a pooled connection that is the

@@ -5,9 +5,6 @@ import ssl
 
 from .pool import PoolConfig, get_pool
 
-CHUNK_SIZE = 1024 * 256
-
-
 def _ssl_context(tls: bool):
     if not tls:
         return None
@@ -103,7 +100,7 @@ async def _subscription(host, port, query, callback, stop_event, tls):
                 # and handed the callback whatever had accumulated, so two frames
                 # arriving together were delivered as a single event and a
                 # partial third was discarded by the following clear().
-                read = asyncio.ensure_future(reader.readline())
+                read = asyncio.ensure_future(_read_frame(reader))
 
                 if stop_waiter is None:
                     line = await read
@@ -200,7 +197,7 @@ async def _exchange(reader, writer, query):
     # StreamReader's own buffer, so the leftover travels with the connection
     # rather than being parsed as part of this response (contract §7). The
     # previous loop appended whole chunks and kept those trailing bytes.
-    line = await asyncio.wait_for(reader.readline(), timeout=120)
+    line = await asyncio.wait_for(_read_frame(reader), timeout=120)
 
     if not line:
         # EOF before any response byte. Returning an empty success would hand
@@ -208,6 +205,27 @@ async def _exchange(reader, writer, query):
         raise ConnectionError("connection closed before a response was received")
 
     return recursive_parse_orjson(line.decode().strip())
+
+
+async def _read_frame(reader: asyncio.StreamReader) -> bytes:
+    """Read one newline-delimited frame without imposing a total-size limit.
+
+    ``StreamReader.readline()`` rejects a line larger than its configured
+    buffer limit (64 KiB by default). When ``readuntil`` reaches that limit,
+    ``LimitOverrunError.consumed`` identifies bytes known to be before the
+    delimiter. Consume and accumulate only those bytes, then continue looking
+    for the newline. Bytes after the newline remain buffered on the same reader,
+    which keeps pooled connections correctly framed.
+    """
+    parts = []
+    while True:
+        try:
+            parts.append(await reader.readuntil(b"\n"))
+            return b"".join(parts)
+        except asyncio.LimitOverrunError as error:
+            if error.consumed <= 0:
+                raise
+            parts.append(await reader.readexactly(error.consumed))
 
 
 def recursive_parse_orjson(data):
