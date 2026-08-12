@@ -134,7 +134,7 @@ class persistent_kv:
         return await cls._run_query(query)
 
     @classmethod
-    async def create_keyspace(cls, cache: Union[int, None] = None, compression: bool = False):
+    async def create_keyspace(cls, cache: Union[int, None] = None, compression: bool = False, semantic: bool = True):
         """
         Creates a new keyspace in the store with the specified settings for persistence, distribution, caching, and
         compression.
@@ -146,8 +146,7 @@ class persistent_kv:
         Returns:
             bool: True if the keyspace was created successfully, False otherwise.
         """
-        query = orjson.dumps({
-            "raw": [
+        raw = [
                 "create-keyspace",
                 "store", cls.store,
                 "keyspace", cls.keyspace,
@@ -155,7 +154,11 @@ class persistent_kv:
                 "distributed", "y" if cls.distributed else "n",
                 "cache", str(cache) if cache else "0",
                 "compression", "y" if compression else "n"
-                ],
+                ]
+        if not semantic:
+            raw.extend(["semantic", "off"])
+        query = orjson.dumps({
+            "raw": raw,
             "credentials": [cls.username, cls.password]
         })
 

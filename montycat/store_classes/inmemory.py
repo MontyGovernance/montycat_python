@@ -207,7 +207,7 @@ class inmemory_kv:
         return await cls._run_query(query)
 
     @classmethod
-    async def create_keyspace(cls):
+    async def create_keyspace(cls, semantic: bool = True):
         """
         Create a keyspace in the store.
 
@@ -215,14 +215,17 @@ class inmemory_kv:
             True if the keyspace was created successfully. Class 'str' if the keyspace creation failed.
         """
 
-        query = orjson.dumps({
-            "raw": [
+        raw = [
                 "create-keyspace",
                 "store", cls.store,
                 "keyspace", cls.keyspace,
                 "persistent", "y" if cls.persistent else "n",
                 "distributed", "y" if cls.distributed else "n"
-            ],
+            ]
+        if not semantic:
+            raw.extend(["semantic", "off"])
+        query = orjson.dumps({
+            "raw": raw,
             "credentials": [cls.username, cls.password]
         })
 

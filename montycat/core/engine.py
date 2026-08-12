@@ -321,6 +321,24 @@ class Engine:
             command.extend(["keyspace", keyspace])
         return await self._execute_query_with_credentials(command)
 
+    async def enable_precomputed_vector_search(
+        self, store: str, keyspace: str, dimensions: int, embedding_space: str
+    ) -> Any:
+        """Enroll a keyspace for externally generated vectors.
+
+        Existing records require a client-side vector import/backfill. Text
+        queries are not embedded by the server; pass a query vector.
+        """
+        if not 1 <= dimensions <= 4096:
+            raise ValueError("dimensions must be between 1 and 4096")
+        if not embedding_space or len(embedding_space) > 128:
+            raise ValueError("embedding_space must contain 1 to 128 characters")
+        return await self._execute_query_with_credentials([
+            "enable-semantic-search", "source", "external",
+            "dimensions", str(dimensions), "embedding-space", embedding_space,
+            "store", store, "keyspace", keyspace,
+        ])
+
     async def reembed_semantic_search(
         self,
         model: SemanticModel,
