@@ -40,6 +40,10 @@ class Limit:
     def serialize(self):
         return {"start": self.start, "stop": self.stop}
 
+class ResultOrder(str, Enum):
+    ASCENDING = "ascending"
+    DESCENDING = "descending"
+
 class Permission(Enum):
     """Enum for permission levels."""
     READ = "read"

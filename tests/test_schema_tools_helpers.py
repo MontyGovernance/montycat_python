@@ -3,7 +3,7 @@ import unittest
 import orjson
 
 from montycat.core.schema import Schema
-from montycat.core.tools import Limit, Permission, Pointer, Timestamp
+from montycat.core.tools import Limit, Permission, Pointer, ResultOrder, Timestamp
 from montycat.core.utils import is_u128, recursive_parse_orjson
 from montycat.store_classes.kv import generic_kv
 from montycat.store_functions.store_generic_functions import (
@@ -162,6 +162,7 @@ class UtilityTests(unittest.TestCase):
                 semantic_vectors={"7": [0.3, 0.4]},
                 semantic_vector_list=[[0.5, 0.6]],
                 wait_for_index=True,
+                order=ResultOrder.ASCENDING,
             )
         )
         self.assertEqual(query["key"], "7")
@@ -170,6 +171,7 @@ class UtilityTests(unittest.TestCase):
         self.assertEqual(query["search_criteria"], "launch")
         self.assertEqual(query["min_score"], 0.7)
         self.assertTrue(query["wait_for_index"])
+        self.assertEqual(query["order"], "ascending")
         self.assertEqual(query["semantic_vector"], [0.1, 0.2])
         self.assertEqual(query["semantic_vectors"], {"7": [0.3, 0.4]})
         self.assertEqual(query["semantic_vector_list"], [[0.5, 0.6]])

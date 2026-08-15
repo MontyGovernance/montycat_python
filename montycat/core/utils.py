@@ -82,6 +82,8 @@ async def send_data(
 async def _subscription(host, port, query, callback, stop_event, tls):
     """Streaming path. Never pooled (contract §5)."""
     writer = None
+    read = None
+    stop_waiter = None
     try:
         reader, writer = await _connect(host, port, tls)
 
@@ -116,6 +118,11 @@ async def _subscription(host, port, query, callback, stop_event, tls):
                     )
                     if read not in done:
                         read.cancel()
+                        # Cancellation races with socket EOF. Always retrieve
+                        # the task's result so an IncompleteReadError that wins
+                        # that race is treated as subscription shutdown instead
+                        # of becoming "Task exception was never retrieved".
+                        await asyncio.gather(read, return_exceptions=True)
                         break
                     line = read.result()
 
@@ -124,8 +131,14 @@ async def _subscription(host, port, query, callback, stop_event, tls):
 
                 callback(recursive_parse_orjson(line.decode().strip()))
         finally:
-            if stop_waiter is not None and not stop_waiter.done():
-                stop_waiter.cancel()
+            if read is not None:
+                if not read.done():
+                    read.cancel()
+                await asyncio.gather(read, return_exceptions=True)
+            if stop_waiter is not None:
+                if not stop_waiter.done():
+                    stop_waiter.cancel()
+                await asyncio.gather(stop_waiter, return_exceptions=True)
 
         return None  # subscription ended
     except Exception as e:
