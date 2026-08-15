@@ -116,7 +116,7 @@ class persistent_kv:
         return await cls._run_query(query)
 
     @classmethod
-    async def get_keys(cls, limit: list[int] = [], volumes: list[str] = [], latest_volume: bool = False):
+    async def get_keys(cls, limit: list[int] = [], order=None, volumes: list[str] = [], latest_volume: bool = False):
         """
         Args:
             limit: A list of two integers [start, stop] to retrieve keys in range.
@@ -130,7 +130,7 @@ class persistent_kv:
             if not limit or limit == [0, 0]:
                 raise ValueError("Please provide volumes/latest volume or limit.")
 
-        query = convert_to_binary_query(cls, command="get_keys", limit_output=handle_limit(limit), volumes=volumes, latest_volume=latest_volume)
+        query = convert_to_binary_query(cls, command="get_keys", limit_output=handle_limit(limit), order=order, volumes=volumes, latest_volume=latest_volume)
         return await cls._run_query(query)
 
     @classmethod

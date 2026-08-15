@@ -362,6 +362,100 @@ class PoolTests(unittest.TestCase):
         self.assertEqual(len(frames), 1, "expected exactly the one frame sent")
         self.assertEqual(frames[0].get("payload"), "only-event")
 
+    def test_stopping_subscription_retrieves_cancelled_reader_exception(self):
+        loop_errors = []
+
+        async def close_when_stopped(reader, writer, stopped):
+            try:
+                await reader.readline()
+                await stopped.wait()
+                writer.close()
+                await writer.wait_closed()
+            except Exception:
+                return
+
+        async def scenario():
+            stopped = asyncio.Event()
+            server = await asyncio.start_server(
+                lambda reader, writer: close_when_stopped(reader, writer, stopped),
+                "127.0.0.1",
+                0,
+            )
+            port = server.sockets[0].getsockname()[1]
+            loop = asyncio.get_running_loop()
+            previous_handler = loop.get_exception_handler()
+            loop.set_exception_handler(lambda _loop, context: loop_errors.append(context))
+            try:
+                task = asyncio.create_task(
+                    send_data(
+                        "127.0.0.1",
+                        port,
+                        b"{}",
+                        callback=lambda _frame: None,
+                        stop_event=stopped,
+                    )
+                )
+                await asyncio.sleep(0.05)
+                stopped.set()
+                await asyncio.wait_for(task, timeout=5)
+                await asyncio.sleep(0)
+            finally:
+                loop.set_exception_handler(previous_handler)
+                server.close()
+                await server.wait_closed()
+
+        run(scenario())
+        self.assertEqual(
+            loop_errors,
+            [],
+            "subscription shutdown leaked an un-retrieved reader task exception",
+        )
+
+    def test_cancelling_subscription_retrieves_reader_exception(self):
+        loop_errors = []
+
+        async def stay_open(reader, writer):
+            try:
+                await reader.readline()
+                await reader.read()
+            except Exception:
+                pass
+            finally:
+                writer.close()
+                await writer.wait_closed()
+
+        async def scenario():
+            server = await asyncio.start_server(stay_open, "127.0.0.1", 0)
+            port = server.sockets[0].getsockname()[1]
+            loop = asyncio.get_running_loop()
+            previous_handler = loop.get_exception_handler()
+            loop.set_exception_handler(lambda _loop, context: loop_errors.append(context))
+            try:
+                task = asyncio.create_task(
+                    send_data(
+                        "127.0.0.1",
+                        port,
+                        b"{}",
+                        callback=lambda _frame: None,
+                        stop_event=asyncio.Event(),
+                    )
+                )
+                await asyncio.sleep(0.05)
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+                await asyncio.sleep(0)
+            finally:
+                loop.set_exception_handler(previous_handler)
+                server.close()
+                await server.wait_closed()
+
+        run(scenario())
+        self.assertEqual(
+            loop_errors,
+            [],
+            "external subscription cancellation leaked its reader task",
+        )
+
     def test_close_all_pools_drains_connections(self):
         async def scenario():
             config = PoolConfig()

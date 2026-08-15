@@ -244,7 +244,7 @@ class generic_kv:
 
     @classmethod
     async def get_bulk(
-        cls, bulk_keys: list = [], bulk_custom_keys: list = [], limit: list[int] = [], with_pointers: bool = False, key_included: bool = False, pointers_metadata: bool = False, volumes: list[str] = [], latest_volume: bool = False):
+        cls, bulk_keys: list = [], bulk_custom_keys: list = [], limit: list[int] = [], order=None, with_pointers: bool = False, key_included: bool = False, pointers_metadata: bool = False, volumes: list[str] = [], latest_volume: bool = False):
         """
         Retrieve multiple keys in bulk. Custom keys can be converted and added to the bulk retrieval list.
         Additionally, a limit on the number of records to retrieve can be applied, and whether to include pointers
@@ -286,7 +286,7 @@ class generic_kv:
         if selected_options != 1:
             raise ValueError("Please provide keys or volumes/latest volume or limit.")
 
-        query = convert_to_binary_query(cls, command="get_bulk", limit_output=handle_limit(limit), bulk_keys=bulk_keys, with_pointers=with_pointers, key_included=key_included, pointers_metadata=pointers_metadata, volumes=volumes, latest_volume=latest_volume)
+        query = convert_to_binary_query(cls, command="get_bulk", limit_output=handle_limit(limit), order=order, bulk_keys=bulk_keys, with_pointers=with_pointers, key_included=key_included, pointers_metadata=pointers_metadata, volumes=volumes, latest_volume=latest_volume)
         return await cls._run_query(query)
 
     @classmethod
@@ -326,7 +326,7 @@ class generic_kv:
         return await cls._run_query(query)
 
     @classmethod
-    async def lookup_keys_where(cls, limit: Union[int, list] = 0, schema: Union[str, None] = None, **filters):
+    async def lookup_keys_where(cls, limit: Union[int, list] = 0, order=None, schema: Union[str, None] = None, **filters):
         """
         Perform a lookup for keys matching the given filters with an optional limit on the number of records returned.
 
@@ -341,11 +341,11 @@ class generic_kv:
             ValueError: If no filters are provided.
         """
 
-        query = convert_to_binary_query(cls, command="lookup_keys", limit_output=handle_limit(limit), search_criteria=filters, schema=str(schema) if schema else None)
+        query = convert_to_binary_query(cls, command="lookup_keys", limit_output=handle_limit(limit), order=order, search_criteria=filters, schema=str(schema) if schema else None)
         return await cls._run_query(query)
 
     @classmethod
-    async def lookup_values_where(cls, limit: Union[int, list] = 0, with_pointers: bool = False, key_included: bool = False, pointers_metadata: bool = False, schema: Union[str, None] = None, **filters):
+    async def lookup_values_where(cls, limit: Union[int, list] = 0, order=None, with_pointers: bool = False, key_included: bool = False, pointers_metadata: bool = False, schema: Union[str, None] = None, **filters):
         """
         Perform a lookup for values matching the given filters, with options to apply a limit and include pointer information.
 
@@ -363,7 +363,7 @@ class generic_kv:
             ValueError: If no filters are provided.
         """
 
-        query = convert_to_binary_query(cls, command="lookup_values", limit_output=handle_limit(limit), search_criteria=filters, with_pointers=with_pointers, key_included=key_included, pointers_metadata=pointers_metadata, schema=str(schema) if schema else None)
+        query = convert_to_binary_query(cls, command="lookup_values", limit_output=handle_limit(limit), order=order, search_criteria=filters, with_pointers=with_pointers, key_included=key_included, pointers_metadata=pointers_metadata, schema=str(schema) if schema else None)
         return await cls._run_query(query)
 
     @classmethod
