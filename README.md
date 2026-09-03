@@ -13,7 +13,7 @@ The official async Python client for [Montycat](https://montygovernance.com) —
 ```python
 # Search your data by MEANING — no external APIs, no separate vector database.
 # (already ON by default in the montycat-semantic server edition)
-hits = await Sales.semantic_search_get_values("Show all Bluetooth devices", limit=5)
+hits = await Sales.search_values(query="Show all Bluetooth devices", limit=5)
 # → [{__key__: 123..., __score__: 0.82, __value__: {"name": "Wireless Headphones"}}]
 ```
 
@@ -139,13 +139,11 @@ async def main():
 asyncio.run(main())
 ```
 
-## 🧠 AI-Native Semantic Search — Vector Search Built Into Your Database
+## 🧠 Ranked Search — Semantic, BM25 Keyword, and Hybrid
 
-**Stop bolting a separate vector database onto your stack.** Montycat ranks your data by
-*meaning*, not keywords — an embedded, on-device vector-embedding engine turns every write
-into a searchable vector automatically. It's the retrieval layer for **RAG pipelines, AI
-agents, semantic search, recommendation engines, and LLM-powered apps** — with **zero
-external APIs, zero API keys, and zero extra infrastructure.**
+Montycat provides semantic vector search, persistent BM25 keyword search, and
+hybrid ranking in the same database. Use `lookup_*` for exact structured
+matching; use `search_keys` or `search_values` for relevance-ranked retrieval.
 
 - 🔎 **Semantic / vector search** — kNN similarity over on-device embeddings, not brittle keyword matches.
 - 🤖 **Built for AI** — RAG, semantic retrieval, AI agents, recommendations, dedup, clustering.
@@ -166,15 +164,26 @@ The switch is DB-wide and already on in the semantic edition. The embedding mode
 downloaded on demand, and every keyspace is embedded in the background as data is written.
 
 ```python
-# Semantic search is ON by default in the montycat-semantic edition — just search.
-# Rank stored items by meaning — two flavors:
-#   get_values → each hit is {__key__, __score__, __value__}
-#   get_keys   → each hit is {__key__, __score__} (lighter; fetch a page later with get_bulk)
-hits = await Sales.semantic_search_get_values("Show all Bluetooth devices", limit=5)
-keys = await Sales.semantic_search_get_keys("Show all Bluetooth devices", limit=5)
+from montycat import SearchMode
+
+hits = await Sales.search_values(
+    query="Show all Bluetooth devices",
+    mode=SearchMode.HYBRID,
+    limit=5,
+)
+keys = await Sales.search_keys(
+    query="bluetooth",
+    mode=SearchMode.KEYWORD,
+    limit=5,
+)
 
 # Optionally drop weak matches by cosine similarity (range [-1, 1]).
-strong = await Sales.semantic_search_get_keys("Show all Bluetooth devices", limit=5, min_score=0.35)
+strong = await Sales.search_keys(
+    query="Show all Bluetooth devices",
+    mode=SearchMode.SEMANTIC,
+    limit=5,
+    min_score=0.35,
+)
 
 # Control the DB-wide switch (optional — it's already on):
 # Read back the model and backfill state actually assigned to a keyspace.
@@ -201,23 +210,33 @@ await connection.reembed_semantic_search(
 await connection.disable_semantic_search()
 ```
 
-### Hybrid semantic search
+### Search modes and metadata filters
 
-Restrict meaning-based ranking to records matching structured metadata. The
-filter is a hard AND pre-filter with the same criteria shape as
-`lookup_keys_where`; it does not boost cosine scores.
+`SEMANTIC` ranks by vector similarity, `KEYWORD` uses BM25 lexical relevance,
+and `HYBRID` combines both rankings with reciprocal-rank fusion. Optional
+`filters` are an exact hard pre-filter; they restrict candidates but do not
+contribute to relevance.
+
+`__score__` is cosine similarity in semantic mode, raw BM25 relevance in
+keyword mode, and a normalized `[0, 1]` RRF score in hybrid mode. Keyword
+scores have no fixed upper bound, so compare scores only within the same query
+and search mode. A hybrid score near `1.0` means strong agreement between both
+rankings; a top result found by only one branch is around `0.5`. `min_score`
+filters only the semantic branch.
 
 ```python
-matching_keys = await Sales.semantic_search_get_keys_where(
-    "astronomy and outer space",
-    {"category": "space"},
+matching_keys = await Sales.search_keys(
+    query="astronomy and outer space",
+    mode=SearchMode.HYBRID,
+    filters={"category": "space"},
     limit=5,
     min_score=0.35,
 )
 
-matching_values = await Sales.semantic_search_get_values_where(
-    "astronomy and outer space",
-    {"category": "space"},
+matching_values = await Sales.search_values(
+    query="astronomy and outer space",
+    mode=SearchMode.HYBRID,
+    filters={"category": "space"},
     limit=5,
 )
 # key hits:   {"__key__", "__score__"}
@@ -258,13 +277,18 @@ await Sales.insert_bulk(
     vectors=[embedding1, embedding2],
 )
 
-# Searching: pass a query vector; the query string may be empty.
-hits = await Sales.semantic_search_get_values("", vector=my_query_embedding, limit=10)
+# A vector may replace query text only in semantic mode.
+hits = await Sales.search_values(
+    query="",
+    mode=SearchMode.SEMANTIC,
+    vector=my_query_embedding,
+    limit=10,
+)
 ```
 
 `vector` is also accepted by `insert_custom_key_value` and `update_value`, and
 `update_bulk` takes `vectors` for numeric keys plus `custom_vectors` for custom
-keys. All four `semantic_search_*` methods accept a query vector.
+keys. `search_keys` and `search_values` accept a query vector in semantic mode.
 
 **Embedding-space compatibility is required.** Every supplied record vector and
 query vector must be produced by the model enrolled for that keyspace, including

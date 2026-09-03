@@ -1,5 +1,5 @@
 from ..core.engine import Engine, send_data
-from ..core.tools import Pointer, Timestamp
+from ..core.tools import Pointer, Timestamp, SearchMode
 from ..store_functions.store_generic_functions import \
     handle_limit, convert_to_binary_query, convert_custom_key, \
     convert_custom_keys, convert_custom_keys_values, normalize_bools
@@ -367,21 +367,25 @@ class generic_kv:
         return await cls._run_query(query)
 
     @classmethod
-    async def _semantic_search(cls, query: str, vector: Union[list[float], None], limit: Union[int, list], min_score: Union[float, None], filters: Union[dict, None], with_pointers: bool, key_included: bool, pointers_metadata: bool):
+    async def _semantic_search(cls, query: str, vector: Union[list[float], None], limit: Union[int, list], min_score: Union[float, None], filters: Union[dict, None], with_pointers: bool, key_included: bool, pointers_metadata: bool, mode: SearchMode):
         """Shared core for `semantic_search_get_keys` / `semantic_search_get_values`.
 
         The server command is the same either way (`semantic_search`); the two
         public methods differ only in which value-inclusion flags they pass, so
         the wire call lives here once.
         """
-        if vector is None and (not query or not query.strip()):
+        if not isinstance(mode, SearchMode):
+            raise TypeError("mode must be a SearchMode value.")
+        if filters is not None and not filters:
+            raise ValueError("Search filters cannot be empty.")
+        if (mode != SearchMode.SEMANTIC or vector is None) and (not query or not query.strip()):
             raise ValueError("No query text provided for semantic search.")
         if vector is not None and (not vector or any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) for v in vector)):
             raise ValueError("Semantic vector must contain only finite numbers.")
 
         query_binary = convert_to_binary_query(
             cls,
-            command="semantic_search",
+            command=f"{mode.value}_search",
             semantic_query=query,
             semantic_vector=vector,
             limit_output=handle_limit(limit),
@@ -394,8 +398,21 @@ class generic_kv:
         return await cls._run_query(query_binary)
 
     @classmethod
+    async def search_keys(cls, *, query: str, mode: SearchMode = SearchMode.SEMANTIC, filters: Union[dict, None] = None, vector: Union[list[float], None] = None, limit: Union[int, list] = 0, min_score: Union[float, None] = None):
+        """Return relevance-ranked keys using semantic, BM25, or hybrid search."""
+        return await cls._semantic_search(query, vector, limit, min_score, filters, False, False, False, mode)
+
+    @classmethod
+    async def search_values(cls, *, query: str, mode: SearchMode = SearchMode.SEMANTIC, filters: Union[dict, None] = None, vector: Union[list[float], None] = None, limit: Union[int, list] = 0, min_score: Union[float, None] = None, with_pointers: bool = False, pointers_metadata: bool = False):
+        """Return relevance-ranked values using semantic, BM25, or hybrid search."""
+        return await cls._semantic_search(query, vector, limit, min_score, filters, with_pointers, True, pointers_metadata, mode)
+
+    @classmethod
     async def semantic_search_get_keys(cls, query: str, vector: Union[list[float], None] = None, limit: Union[int, list] = 0, min_score: Union[float, None] = None):
         """
+        Deprecated: use ``search_keys(query=...)``. The original signature and
+        semantic-only behavior are preserved for compatibility.
+
         Semantic (vector similarity) search returning ranked keys only.
 
         Ranks stored items by how close their embeddings are to the embedding of
@@ -427,11 +444,14 @@ class generic_kv:
         Raises:
             ValueError: If neither query text nor a valid vector is provided.
         """
-        return await cls._semantic_search(query, vector, limit, min_score, None, False, False, False)
+        return await cls.search_keys(query=query, vector=vector, limit=limit, min_score=min_score)
 
     @classmethod
     async def semantic_search_get_values(cls, query: str, vector: Union[list[float], None] = None, limit: Union[int, list] = 0, min_score: Union[float, None] = None, with_pointers: bool = False, pointers_metadata: bool = False):
         """
+        Deprecated: use ``search_values(query=...)``. The original signature
+        and semantic-only behavior are preserved for compatibility.
+
         Semantic (vector similarity) search returning ranked hits with their values.
 
         Ranks stored items by how close their embeddings are to the embedding of
@@ -468,11 +488,14 @@ class generic_kv:
         Raises:
             ValueError: If neither query text nor a valid vector is provided.
         """
-        return await cls._semantic_search(query, vector, limit, min_score, None, with_pointers, True, pointers_metadata)
+        return await cls.search_values(query=query, vector=vector, limit=limit, min_score=min_score, with_pointers=with_pointers, pointers_metadata=pointers_metadata)
 
     @classmethod
     async def semantic_search_get_keys_where(cls, query: str, filters: dict, vector: Union[list[float], None] = None, limit: Union[int, list] = 0, min_score: Union[float, None] = None):
         """
+        Deprecated: use ``search_keys(query=..., filters=...)``. The original
+        signature and semantic-only behavior are preserved for compatibility.
+
         Hybrid semantic search returning ranked keys only, restricted by a metadata filter.
 
         Same ranking as `semantic_search_get_keys`, but only items matching `filters`
@@ -506,11 +529,14 @@ class generic_kv:
         """
         if not filters:
             raise ValueError("No filters provided for hybrid semantic search.")
-        return await cls._semantic_search(query, vector, limit, min_score, filters, False, False, False)
+        return await cls.search_keys(query=query, filters=filters, vector=vector, limit=limit, min_score=min_score)
 
     @classmethod
     async def semantic_search_get_values_where(cls, query: str, filters: dict, vector: Union[list[float], None] = None, limit: Union[int, list] = 0, min_score: Union[float, None] = None, with_pointers: bool = False, pointers_metadata: bool = False):
         """
+        Deprecated: use ``search_values(query=..., filters=...)``. The original
+        signature and semantic-only behavior are preserved for compatibility.
+
         Hybrid semantic search returning ranked hits with their values, restricted by a metadata filter.
 
         Same ranking as `semantic_search_get_values`, but only items matching `filters`
@@ -550,7 +576,7 @@ class generic_kv:
         """
         if not filters:
             raise ValueError("No filters provided for hybrid semantic search.")
-        return await cls._semantic_search(query, vector, limit, min_score, filters, with_pointers, True, pointers_metadata)
+        return await cls.search_values(query=query, filters=filters, vector=vector, limit=limit, min_score=min_score, with_pointers=with_pointers, pointers_metadata=pointers_metadata)
 
     @classmethod
     async def list_all_depending_keys(cls, key: Union[str, None] = None, custom_key: Union[str, None] = None):

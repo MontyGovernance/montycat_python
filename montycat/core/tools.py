@@ -75,6 +75,12 @@ class SemanticModel(str, Enum):
     BGE_BASE = "bge-base"
     E5_SMALL = "e5-small"
 
+class SearchMode(str, Enum):
+    """Ranking strategy for semantic, BM25 keyword, or hybrid search."""
+    SEMANTIC = "semantic"
+    KEYWORD = "keyword"
+    HYBRID = "hybrid"
+
 class PolicyFormat(str, Enum):
     """Serialization formats accepted by policy manifest commands."""
     JSON = "json"
