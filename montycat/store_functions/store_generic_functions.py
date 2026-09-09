@@ -220,8 +220,8 @@ def convert_to_binary_query(
         "pointers_metadata": pointers_metadata,
     }
 
-    # Only `semantic_search` honors min_score; omit it otherwise so the wire is
-    # unchanged for existing commands (the engine defaults the field to None).
+    # Search commands apply min_score to the final mode score before pagination.
+    # Omit unset thresholds; the engine defaults the field to None.
     if min_score is not None:
         query_dict["min_score"] = min_score
 

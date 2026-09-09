@@ -4,6 +4,7 @@ from ..store_functions.store_generic_functions import \
     handle_limit, convert_to_binary_query, convert_custom_key, \
     convert_custom_keys, convert_custom_keys_values, normalize_bools
 from typing import Union, get_args, get_origin
+from typing_extensions import deprecated
 from types import UnionType
 import orjson
 import asyncio
@@ -399,15 +400,25 @@ class generic_kv:
 
     @classmethod
     async def search_keys(cls, *, query: str, mode: SearchMode = SearchMode.SEMANTIC, filters: Union[dict, None] = None, vector: Union[list[float], None] = None, limit: Union[int, list] = 0, min_score: Union[float, None] = None):
-        """Return relevance-ranked keys using semantic, BM25, or hybrid search."""
+        """Return relevance-ranked keys using semantic, BM25, or hybrid search.
+
+        min_score filters the final mode score before pagination: cosine for
+        semantic, BM25 for keyword, normalized RRF in [0, 1] for hybrid.
+        Hybrid thresholds apply after fusion, including keyword-only fallback.
+        Requires engine support for final-score filtering.
+        """
         return await cls._semantic_search(query, vector, limit, min_score, filters, False, False, False, mode)
 
     @classmethod
     async def search_values(cls, *, query: str, mode: SearchMode = SearchMode.SEMANTIC, filters: Union[dict, None] = None, vector: Union[list[float], None] = None, limit: Union[int, list] = 0, min_score: Union[float, None] = None, with_pointers: bool = False, pointers_metadata: bool = False):
-        """Return relevance-ranked values using semantic, BM25, or hybrid search."""
+        """Return relevance-ranked values using semantic, BM25, or hybrid search.
+
+        min_score uses the same final-score semantics as search_keys.
+        """
         return await cls._semantic_search(query, vector, limit, min_score, filters, with_pointers, True, pointers_metadata, mode)
 
     @classmethod
+    @deprecated("Use search_keys(query=...) instead.", category=None)
     async def semantic_search_get_keys(cls, query: str, vector: Union[list[float], None] = None, limit: Union[int, list] = 0, min_score: Union[float, None] = None):
         """
         Deprecated: use ``search_keys(query=...)``. The original signature and
@@ -447,6 +458,7 @@ class generic_kv:
         return await cls.search_keys(query=query, vector=vector, limit=limit, min_score=min_score)
 
     @classmethod
+    @deprecated("Use search_values(query=...) instead.", category=None)
     async def semantic_search_get_values(cls, query: str, vector: Union[list[float], None] = None, limit: Union[int, list] = 0, min_score: Union[float, None] = None, with_pointers: bool = False, pointers_metadata: bool = False):
         """
         Deprecated: use ``search_values(query=...)``. The original signature
@@ -491,6 +503,7 @@ class generic_kv:
         return await cls.search_values(query=query, vector=vector, limit=limit, min_score=min_score, with_pointers=with_pointers, pointers_metadata=pointers_metadata)
 
     @classmethod
+    @deprecated("Use search_keys(query=..., filters=...) instead.", category=None)
     async def semantic_search_get_keys_where(cls, query: str, filters: dict, vector: Union[list[float], None] = None, limit: Union[int, list] = 0, min_score: Union[float, None] = None):
         """
         Deprecated: use ``search_keys(query=..., filters=...)``. The original
@@ -532,6 +545,7 @@ class generic_kv:
         return await cls.search_keys(query=query, filters=filters, vector=vector, limit=limit, min_score=min_score)
 
     @classmethod
+    @deprecated("Use search_values(query=..., filters=...) instead.", category=None)
     async def semantic_search_get_values_where(cls, query: str, filters: dict, vector: Union[list[float], None] = None, limit: Union[int, list] = 0, min_score: Union[float, None] = None, with_pointers: bool = False, pointers_metadata: bool = False):
         """
         Deprecated: use ``search_values(query=..., filters=...)``. The original
