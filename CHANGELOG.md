@@ -5,6 +5,21 @@ All notable changes to the Montycat Python client are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.4] - 2026-09-08
+
+### Changed
+
+- Apply `min_score` to the score returned by the selected search mode before
+  pagination: cosine similarity for semantic search, BM25 for keyword search,
+  and normalized RRF after fusion for hybrid search. Hybrid keyword fallback
+  hits now obey the same final-score floor.
+
+### Deprecated
+
+- Mark the four legacy `semantic_search_get_*` methods with PEP 702
+  `@deprecated` metadata, so supporting IDEs and type checkers show the
+  replacement methods. The compatibility wrappers remain callable.
+
 ## [1.2.3] - 2026-09-02
 
 - Added `SearchMode`, `search_keys`, and `search_values`, with optional metadata
