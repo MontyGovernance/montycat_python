@@ -222,7 +222,12 @@ keyword mode, and a normalized `[0, 1]` RRF score in hybrid mode. Keyword
 scores have no fixed upper bound, so compare scores only within the same query
 and search mode. A hybrid score near `1.0` means strong agreement between both
 rankings; a top result found by only one branch is around `0.5`. `min_score`
-filters only the semantic branch.
+filters the final score for the selected mode before pagination. In hybrid mode,
+this applies after fusion, not to cosine similarity; keyword-only fallback hits
+are filtered too. Thresholds are not interchangeable between modes.
+
+This requires an engine with final-score filtering support. Older engines filter
+only the semantic branch of hybrid search and ignore keyword thresholds.
 
 ```python
 matching_keys = await Sales.search_keys(

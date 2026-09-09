@@ -9,6 +9,7 @@ setup(
         'alternative for RAG, AI agents & LLM memory.'
     ),
     packages=find_packages(),
+    package_data={"montycat": ["py.typed"]},
     zip_safe=False,
     long_description=open('README.md', encoding='utf-8').read(),
     long_description_content_type='text/markdown',
@@ -16,7 +17,7 @@ setup(
     author_email='eugene.and.monty@gmail.com',
     url='https://montygovernance.com',
     license='MIT',
-    install_requires=['orjson', 'xxhash'],
+    install_requires=['orjson', 'xxhash', 'typing_extensions>=4.5'],
     project_urls={
         'Homepage': 'https://montygovernance.com',
         'Documentation': 'https://montygovernance.com',
