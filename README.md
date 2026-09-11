@@ -425,9 +425,61 @@ connection = Engine(
 )
 ```
 
-> **Note.** The client accepts self-signed certificates, which is convenient for local
-> and internal deployments but means the server identity is not verified. Terminate TLS
-> at a trusted proxy if you need certificate validation.
+On its own that encrypts the connection without checking who is on the other end,
+which is where this client has always stood. Encryption without verification stops
+passive eavesdropping but not an active attacker: anything that can sit in the path
+can present its own certificate and read or alter every request, credentials included.
+
+### Verifying the engine
+
+Verification is opt-in, and takes whichever form of trust material you have.
+
+**The engine's certificate, copied to the client host.** The certificate the engine
+presents must match this file exactly:
+
+```python
+connection = Engine(
+    ...,
+    tls=True,
+    certificate_path="/etc/montycat/server.crt",
+)
+```
+
+**Its SHA-256 fingerprint**, when passing a string is easier than shipping a file —
+a container image, an environment variable, a secrets manager:
+
+```bash
+openssl x509 -in server.crt -noout -fingerprint -sha256
+```
+
+```python
+connection = Engine(
+    ...,
+    tls=True,
+    certificate_fingerprint=os.environ["MONTYCAT_CERT_FINGERPRINT"],
+)
+```
+
+Either one implies verification — no second argument needed. Both compare the
+certificate byte for byte and skip hostname checking, because the engine's
+self-signed certificate carries only `localhost`, `127.0.0.1` and `::1` as subject
+alternative names unless it was regenerated with `init-self-tls dns/ip`. The
+comparison already answers the question a hostname check is a proxy for.
+
+**A certificate from a real CA**, for an engine behind a terminating proxy — no pin,
+so the operating system trust store and ordinary hostname checking apply:
+
+```python
+connection = Engine(..., tls=True, certificate_verification=True)
+```
+
+A certificate that does not match raises before any request byte is written, and the
+error carries the fingerprint that actually arrived, so a regenerated certificate is
+a one-line fix rather than a mystery.
+
+> **Note.** `certificate_verification` is off by default. Turning it on by default
+> would break every deployment using the engine's self-signed certificate, so the
+> choice is yours to make explicitly.
 
 ## 👥 Owners & Access
 

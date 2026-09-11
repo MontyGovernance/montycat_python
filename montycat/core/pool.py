@@ -6,7 +6,9 @@ shape this module:
 
 - **§3** — pooling by ``(host, port, tls)`` is safe: credentials travel in every
   request payload and the engine re-authenticates per request, so a pooled
-  connection carries no identity and may serve different users.
+  connection carries no identity and may serve different users. The ``tls`` half
+  of that key is the whole TLS configuration, not merely on/off: connections
+  that trust different certificates are not interchangeable either.
 - **§4** — never replay a request after a read failure; the engine may have
   applied it already. Stale connections are caught by a health check at
   checkout, not by waiting for a write to fail.
@@ -170,20 +172,25 @@ async def _close(writer: asyncio.StreamWriter) -> None:
 
 # One pool per target. Keyed on tls as well as host/port: a plaintext and a TLS
 # connection to the same address are not interchangeable.
-_POOLS: Dict[Tuple[str, int, bool], ConnectionPool] = {}
+_POOLS: Dict[Tuple[str, int, Tuple], ConnectionPool] = {}
 
 
 def get_pool(
-    host: str, port: int, tls: bool, config: Optional[PoolConfig]
+    host: str, port: int, tls_key: Tuple, config: Optional[PoolConfig]
 ) -> Optional[ConnectionPool]:
     """The pool for this target, creating it on first use.
 
     Returns ``None`` when ``config`` is ``None``, which is how pooling stays
     opt-in: the caller then connects per request exactly as before.
+
+    ``tls_key`` is :meth:`~montycat.core.tls.TlsOptions.pool_key` — everything
+    about the transport that makes two connections non-interchangeable. A
+    connection pinned to one certificate must never be handed to a caller
+    expecting a different one, or expecting no verification at all.
     """
     if config is None:
         return None
-    key = (host, port, tls)
+    key = (host, port, tls_key)
     pool = _POOLS.get(key)
     if pool is None:
         pool = ConnectionPool(config)

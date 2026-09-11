@@ -5,6 +5,47 @@ All notable changes to the Montycat Python client are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.5] - 2026-09-10
+
+### Added
+
+- **Optional certificate verification.** `tls=True` encrypts but does not check
+  who answers, which is where this client has always stood; an active attacker
+  in the path could present its own certificate and read every request,
+  credentials included. `Engine` now accepts three new arguments:
+
+  - `certificate_path` — the engine's certificate, copied to the client host.
+    The certificate presented must match it byte for byte.
+  - `certificate_fingerprint` — its SHA-256 digest, for deployments that would
+    rather pass a string than ship a file. Read one with
+    `openssl x509 -in server.crt -noout -fingerprint -sha256`.
+  - `certificate_verification` — verify against the operating system trust
+    store with ordinary hostname checking, for an engine behind a proxy holding
+    a CA-issued certificate.
+
+  Either pin implies verification, so one argument says one thing. Both skip
+  hostname checking: the engine's self-signed certificate names only
+  `localhost`, `127.0.0.1` and `::1` unless regenerated with
+  `init-self-tls dns/ip`, and comparing the certificate already answers
+  identity exactly. Verification fails before any request byte is written, and
+  the error names the fingerprint that arrived so a regenerated certificate is
+  a one-line fix.
+
+  `TlsOptions` and `TlsVerificationError` are exported for callers using
+  `send_data` directly.
+
+### Changed
+
+- Connection pools are keyed by the whole TLS configuration rather than by an
+  on/off flag. A connection pinned to one certificate is never handed to a
+  caller that asked for different trust, or for none.
+
+### Unchanged
+
+- **`certificate_verification` defaults to off.** Existing TLS deployments keep
+  working exactly as before — turning verification on by default would break
+  every engine running its own self-signed certificate.
+
 ## [1.2.4] - 2026-09-08
 
 ### Changed
