@@ -190,6 +190,9 @@ strong = await Sales.search_keys(
 status = await connection.get_semantic_status(
     store="catalog", keyspace="products"
 )
+# After globally re-enabling semantic search, retry searches while
+# status["payload"]["reloading"] is true: retained indexes open in the background.
+# status["payload"]["indexing"] reports live and backfill queue depths.
 
 # Enable an unenrolled keyspace with an explicit model.
 await connection.enable_semantic_search(
@@ -362,11 +365,11 @@ Tune it if you need to:
 pool = PoolConfig(max_idle=4, idle_timeout=15.0)   # defaults: 8, 30.0
 ```
 
-**Pools are shared per `(host, port, tls)`.** They live in a module-level registry, not on
+**Pools are shared per endpoint and TLS trust configuration.** They live in a module-level registry, not on
 the `Engine`, because `connect_engine` copies scalars off the engine and discards it. Two
 keyspace classes pointing at the same server therefore share one pool rather than each
-opening its own. `tls` is part of the key — a plaintext and a TLS connection to one
-address are not interchangeable.
+opening its own. The complete TLS configuration is part of the key, so plaintext, TLS,
+and connections using different certificate pins are never interchangeable.
 
 **Keep `max_idle` modest.** An idle pooled connection still holds one of the engine's
 connection permits. The defaults are deliberately small; raise them only after measuring
@@ -460,8 +463,9 @@ connection = Engine(
 )
 ```
 
-Either one implies verification — no second argument needed. Both compare the
-certificate byte for byte and skip hostname checking, because the engine's
+Either one implies verification — no second argument needed. Both pin the same leaf
+certificate identity: a certificate file compares parsed DER bytes, while a fingerprint
+compares its SHA-256 digest. Pinning skips hostname checking because the engine's
 self-signed certificate carries only `localhost`, `127.0.0.1` and `::1` as subject
 alternative names unless it was regenerated with `init-self-tls dns/ip`. The
 comparison already answers the question a hostname check is a proxy for.

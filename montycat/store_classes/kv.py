@@ -656,8 +656,8 @@ class generic_kv:
         # keyspace must trust exactly what its engine was told to trust.
         cls.tls_options = getattr(engine, "tls_options", None)
         # Only the *config* is copied. The pool itself lives in a module-level
-        # registry keyed by (host, port, tls), so every keyspace class pointing
-        # at one server shares a single pool rather than each getting its own.
+        # registry keyed by endpoint and TLS trust configuration, so every
+        # keyspace class using the same settings shares a single pool.
         cls.pool = getattr(engine, "pool", None)
 
     @classmethod

@@ -47,8 +47,8 @@ class Engine:
                 per request, exactly as before.
 
                 Pools live in a module-level registry keyed by
-                ``(host, port, tls)``, so every keyspace pointing at the same
-                server shares one pool. Subscriptions are never pooled. Call
+                endpoint and TLS trust configuration, so every keyspace using
+                the same connection settings shares one pool. Subscriptions are never pooled. Call
                 :func:`montycat.close_all_pools` before exit.
             certificate_verification (bool, optional): Verify the engine's
                 certificate. Off unless asked for, which is what ``tls=True``
@@ -127,6 +127,11 @@ class Engine:
 
         Args:
             uri (str): The URI string to parse.
+            pool (PoolConfig, optional): Enables connection pooling.
+            tls (bool): Use TLS for the connection.
+            certificate_verification (bool, optional): Verify the engine certificate.
+            certificate_path (str, optional): Pin the certificate in this file.
+            certificate_fingerprint (str, optional): Pin this SHA-256 fingerprint.
 
         Returns:
             Engine: An instance of Engine with the parsed parameters.
@@ -180,11 +185,8 @@ class Engine:
         """
         Creates a new data store on the server.
 
-        Args:
-            persistent (bool): Flag indicating if the store should be persistent.
-
         Returns:
-            bool
+            Any: The server response.
         """
         return await self._execute_query_with_credentials([
             'create-store', "store", self.store
@@ -194,11 +196,8 @@ class Engine:
         """
         Removes an existing data store from the server.
 
-        Args:
-            persistent (bool): Flag indicating if the removal should be persistent.
-
         Returns:
-            bool
+            Any: The server response.
         """
         return await self._execute_query_with_credentials([
             'remove-store', "store", self.store
@@ -386,7 +385,13 @@ class Engine:
         store: Union[str, None] = None,
         keyspace: Union[str, None] = None,
     ) -> Any:
-        """Return actual global and per-keyspace semantic configuration."""
+        """Return actual global and per-keyspace semantic configuration.
+
+        The response data includes ``reloading`` while retained indexes reopen
+        after global semantic search is enabled. Retry semantic searches or
+        vector uploads until it is false. ``indexing`` reports live and
+        backfill queue depths.
+        """
         if keyspace and not store:
             raise ValueError("A store is required when keyspace is specified")
         command = ["get-semantic-status"]
@@ -530,9 +535,10 @@ class Engine:
     async def enable_wait_for_index(self) -> Any:
         """
         Enable the DB-wide "wait for index" default: writes block until their
-        secondary indexes are updated before returning, so a write is
-        immediately visible to index-backed reads (e.g. lookup_*_where) at the
-        cost of higher write latency.
+        secondary indexes and already-submitted semantic live work are updated
+        before returning, so a write is immediately visible to index-backed
+        reads (including keyword and hybrid search) at the cost of higher write
+        latency.
 
         Requires superowner credentials.
 
