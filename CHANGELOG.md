@@ -34,6 +34,16 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `TlsOptions` and `TlsVerificationError` are exported for callers using
   `send_data` directly.
 
+### Fixed
+
+- `update_bulk` now extracts the schema from serialized schema values and sends
+  it as request metadata, matching `insert_bulk`. Nested `timestamps` metadata
+  is preserved, so bulk updates remain timestamp-queryable instead of turning
+  timestamp fields into ordinary strings.
+- Bulk updates no longer mutate caller-owned dictionaries while preparing the
+  request, normalize numeric keys to wire strings, and reject a batch that
+  mixes different schemas.
+
 ### Changed
 
 - Connection pools are keyed by the whole TLS configuration rather than by an

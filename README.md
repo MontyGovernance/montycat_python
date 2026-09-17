@@ -298,6 +298,12 @@ hits = await Sales.search_values(
 `update_bulk` takes `vectors` for numeric keys plus `custom_vectors` for custom
 keys. `search_keys` and `search_values` accept a query vector in semantic mode.
 
+Serialized schema objects can be passed directly to `update_bulk`. The client
+transports their `schema` as request metadata and preserves the nested
+`timestamps` map, so timestamp fields remain available to `Timestamp(after=…)`,
+`Timestamp(before=…)`, and range lookups after an update. Every value in one
+bulk update must use the same schema.
+
 **Embedding-space compatibility is required.** Every supplied record vector and
 query vector must be produced by the model enrolled for that keyspace, including
 the same model revision, preprocessing, pooling, and normalization. Matching the
