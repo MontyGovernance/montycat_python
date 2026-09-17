@@ -9,6 +9,12 @@ import asyncio
 import unittest
 
 from montycat.core.pool import PoolConfig, close_all_pools, get_pool
+from montycat.core.tls import TlsOptions
+
+# The transport half of a pool's registry key, as send_data builds it. Tests
+# reach into the registry directly, so they must ask for it the same way.
+PLAINTEXT = TlsOptions.coerce(False).pool_key()
+TLS = TlsOptions.coerce(True).pool_key()
 from montycat.core.utils import send_data
 
 OK = b'{"status":true,"payload":null,"error":null}\n'
@@ -103,7 +109,7 @@ class PoolTests(unittest.TestCase):
                     await send_data(
                         server.host, server.port, b"{}", pool_config=config
                     )
-                pool = get_pool(server.host, server.port, False, config)
+                pool = get_pool(server.host, server.port, PLAINTEXT, config)
                 return server.accepts, pool.idle_len()
 
         accepts, idle = run(scenario())
@@ -122,7 +128,7 @@ class PoolTests(unittest.TestCase):
                         for _ in range(8)
                     )
                 )
-                pool = get_pool(server.host, server.port, False, config)
+                pool = get_pool(server.host, server.port, PLAINTEXT, config)
                 return pool.idle_len()
 
         self.assertLessEqual(run(scenario()), 2, "pool grew past max_idle")
@@ -299,7 +305,7 @@ class PoolTests(unittest.TestCase):
                     pool_config=config,
                 )
                 await stopper
-                pool = get_pool("127.0.0.1", port, False, config)
+                pool = get_pool("127.0.0.1", port, PLAINTEXT, config)
                 return pool.idle_len()
             finally:
                 server.close()
@@ -461,7 +467,7 @@ class PoolTests(unittest.TestCase):
             config = PoolConfig()
             async with StubServer() as server:
                 await send_data(server.host, server.port, b"{}", pool_config=config)
-                pool = get_pool(server.host, server.port, False, config)
+                pool = get_pool(server.host, server.port, PLAINTEXT, config)
                 before = pool.idle_len()
                 await close_all_pools()
                 return before, pool.idle_len()
@@ -473,12 +479,25 @@ class PoolTests(unittest.TestCase):
     def test_tls_flag_is_part_of_the_registry_key(self):
         # A plaintext and a TLS connection to one address are not interchangeable.
         config = PoolConfig()
-        plain = get_pool("127.0.0.1", 21210, False, config)
-        secure = get_pool("127.0.0.1", 21210, True, config)
+        plain = get_pool("127.0.0.1", 21210, PLAINTEXT, config)
+        secure = get_pool("127.0.0.1", 21210, TLS, config)
         self.assertIsNot(plain, secure)
 
+    def test_trust_is_part_of_the_registry_key_too(self):
+        # Not merely on/off: a connection verified against a pinned certificate
+        # must never be handed to a caller that asked for no verification.
+        config = PoolConfig()
+        unverified = get_pool("127.0.0.1", 21210, TLS, config)
+        verified = get_pool(
+            "127.0.0.1",
+            21210,
+            TlsOptions(enabled=True, verification=True).pool_key(),
+            config,
+        )
+        self.assertIsNot(unverified, verified)
+
     def test_no_config_means_no_pool(self):
-        self.assertIsNone(get_pool("127.0.0.1", 21210, False, None))
+        self.assertIsNone(get_pool("127.0.0.1", 21210, PLAINTEXT, None))
 
 
 if __name__ == "__main__":

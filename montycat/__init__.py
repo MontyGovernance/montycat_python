@@ -3,3 +3,4 @@ from .core.tools import Pointer, Timestamp, Permission, PolicyCapability, Policy
 from .core.schema import Schema
 from .core.store import Keyspace
 from .core.pool import PoolConfig, close_all_pools
+from .core.tls import TlsOptions, TlsVerificationError

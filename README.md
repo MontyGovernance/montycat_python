@@ -190,6 +190,9 @@ strong = await Sales.search_keys(
 status = await connection.get_semantic_status(
     store="catalog", keyspace="products"
 )
+# After globally re-enabling semantic search, retry searches while
+# status["payload"]["reloading"] is true: retained indexes open in the background.
+# status["payload"]["indexing"] reports live and backfill queue depths.
 
 # Enable an unenrolled keyspace with an explicit model.
 await connection.enable_semantic_search(
@@ -295,6 +298,12 @@ hits = await Sales.search_values(
 `update_bulk` takes `vectors` for numeric keys plus `custom_vectors` for custom
 keys. `search_keys` and `search_values` accept a query vector in semantic mode.
 
+Serialized schema objects can be passed directly to `update_bulk`. The client
+transports their `schema` as request metadata and preserves the nested
+`timestamps` map, so timestamp fields remain available to `Timestamp(after=…)`,
+`Timestamp(before=…)`, and range lookups after an update. Every value in one
+bulk update must use the same schema.
+
 **Embedding-space compatibility is required.** Every supplied record vector and
 query vector must be produced by the model enrolled for that keyspace, including
 the same model revision, preprocessing, pooling, and normalization. Matching the
@@ -362,11 +371,11 @@ Tune it if you need to:
 pool = PoolConfig(max_idle=4, idle_timeout=15.0)   # defaults: 8, 30.0
 ```
 
-**Pools are shared per `(host, port, tls)`.** They live in a module-level registry, not on
+**Pools are shared per endpoint and TLS trust configuration.** They live in a module-level registry, not on
 the `Engine`, because `connect_engine` copies scalars off the engine and discards it. Two
 keyspace classes pointing at the same server therefore share one pool rather than each
-opening its own. `tls` is part of the key — a plaintext and a TLS connection to one
-address are not interchangeable.
+opening its own. The complete TLS configuration is part of the key, so plaintext, TLS,
+and connections using different certificate pins are never interchangeable.
 
 **Keep `max_idle` modest.** An idle pooled connection still holds one of the engine's
 connection permits. The defaults are deliberately small; raise them only after measuring
@@ -425,9 +434,62 @@ connection = Engine(
 )
 ```
 
-> **Note.** The client accepts self-signed certificates, which is convenient for local
-> and internal deployments but means the server identity is not verified. Terminate TLS
-> at a trusted proxy if you need certificate validation.
+On its own that encrypts the connection without checking who is on the other end,
+which is where this client has always stood. Encryption without verification stops
+passive eavesdropping but not an active attacker: anything that can sit in the path
+can present its own certificate and read or alter every request, credentials included.
+
+### Verifying the engine
+
+Verification is opt-in, and takes whichever form of trust material you have.
+
+**The engine's certificate, copied to the client host.** The certificate the engine
+presents must match this file exactly:
+
+```python
+connection = Engine(
+    ...,
+    tls=True,
+    certificate_path="/etc/montycat/server.crt",
+)
+```
+
+**Its SHA-256 fingerprint**, when passing a string is easier than shipping a file —
+a container image, an environment variable, a secrets manager:
+
+```bash
+openssl x509 -in server.crt -noout -fingerprint -sha256
+```
+
+```python
+connection = Engine(
+    ...,
+    tls=True,
+    certificate_fingerprint=os.environ["MONTYCAT_CERT_FINGERPRINT"],
+)
+```
+
+Either one implies verification — no second argument needed. Both pin the same leaf
+certificate identity: a certificate file compares parsed DER bytes, while a fingerprint
+compares its SHA-256 digest. Pinning skips hostname checking because the engine's
+self-signed certificate carries only `localhost`, `127.0.0.1` and `::1` as subject
+alternative names unless it was regenerated with `init-self-tls dns/ip`. The
+comparison already answers the question a hostname check is a proxy for.
+
+**A certificate from a real CA**, for an engine behind a terminating proxy — no pin,
+so the operating system trust store and ordinary hostname checking apply:
+
+```python
+connection = Engine(..., tls=True, certificate_verification=True)
+```
+
+A certificate that does not match raises before any request byte is written, and the
+error carries the fingerprint that actually arrived, so a regenerated certificate is
+a one-line fix rather than a mystery.
+
+> **Note.** `certificate_verification` is off by default. Turning it on by default
+> would break every deployment using the engine's self-signed certificate, so the
+> choice is yours to make explicitly.
 
 ## 👥 Owners & Access
 

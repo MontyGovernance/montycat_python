@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 from .tools import Permission, PolicyCapability, PolicyKeyspaceType, SemanticModel, PolicyFormat
 from .utils import send_data
 from .pool import PoolConfig
+from .tls import TlsOptions
 
 class Engine:
     """
@@ -18,7 +19,19 @@ class Engine:
     """
     VALID_PERMISSIONS = {'read', 'write', 'all'}
 
-    def __init__(self, host: str, port: int, username: str, password: str, store: Union[str, None] = None, tls: bool = False, pool: Union[PoolConfig, None] = None) -> None:
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        username: str,
+        password: str,
+        store: Union[str, None] = None,
+        tls: bool = False,
+        pool: Union[PoolConfig, None] = None,
+        certificate_verification: Union[bool, None] = None,
+        certificate_path: Union[str, None] = None,
+        certificate_fingerprint: Union[str, None] = None,
+    ) -> None:
         """
         Initializes the Engine with the given connection parameters.
 
@@ -34,20 +47,78 @@ class Engine:
                 per request, exactly as before.
 
                 Pools live in a module-level registry keyed by
-                ``(host, port, tls)``, so every keyspace pointing at the same
-                server shares one pool. Subscriptions are never pooled. Call
+                endpoint and TLS trust configuration, so every keyspace using
+                the same connection settings shares one pool. Subscriptions are never pooled. Call
                 :func:`montycat.close_all_pools` before exit.
+            certificate_verification (bool, optional): Verify the engine's
+                certificate. Off unless asked for, which is what ``tls=True``
+                has always meant on this client — turning it on by default would
+                break every existing deployment using the engine's self-signed
+                certificate. Leave it unset when passing a pin below; it is then
+                implied.
+            certificate_path (str, optional): Path to the engine's certificate
+                in PEM form, copied from the engine host. The certificate the
+                engine presents must match it exactly.
+            certificate_fingerprint (str, optional): Its SHA-256 digest, for
+                deployments that would rather pass a string than ship a file::
+
+                    openssl x509 -in server.crt -noout -fingerprint -sha256
+
+        Verifying with neither pin uses the operating system trust store with
+        ordinary hostname checking, which is what an engine behind a proxy
+        holding a CA-issued certificate needs.
+
+        Raises:
+            ValueError: If the TLS arguments cannot mean anything coherent, or
+                if a certificate file cannot be read. Raised here rather than at
+                first request, so the mistake surfaces where it was made.
         """
         self.host = host
         self.port = port
         self.username = username
         self.password = password
         self.store = store
-        self.tls = tls
         self.pool = pool
+        # Kept so that flipping `tls` after construction can rebuild the
+        # options around the same trust material — see the setter below.
+        self._certificate_verification = certificate_verification
+        self._certificate_path = certificate_path
+        self._certificate_fingerprint = certificate_fingerprint
+        self.tls = tls
+
+    @property
+    def tls(self) -> bool:
+        """Whether this engine connects over TLS.
+
+        A settable property rather than a plain attribute because callers do
+        flip it after construction — `Engine.from_uri(...)` followed by
+        `engine.tls = True` is the documented way to opt a URI connection into
+        TLS, and the Montycat MCP server does exactly that. Leaving this a bare
+        attribute would let the flag say TLS while the connection stayed
+        plaintext, which is the worst of the available failures: silent.
+        """
+        return self._tls
+
+    @tls.setter
+    def tls(self, enabled: bool) -> None:
+        self._tls = bool(enabled)
+        self.tls_options = TlsOptions(
+            enabled=self._tls,
+            verification=self._certificate_verification,
+            certificate_path=self._certificate_path,
+            certificate_fingerprint=self._certificate_fingerprint,
+        )
 
     @classmethod
-    def from_uri(cls, uri: str, pool: Union[PoolConfig, None] = None) -> 'Engine':
+    def from_uri(
+        cls,
+        uri: str,
+        pool: Union[PoolConfig, None] = None,
+        tls: bool = False,
+        certificate_verification: Union[bool, None] = None,
+        certificate_path: Union[str, None] = None,
+        certificate_fingerprint: Union[str, None] = None,
+    ) -> 'Engine':
         """
         Creates an Engine instance from a URI string in the format:
         montycat://username:password@host:port[/store]
@@ -56,6 +127,11 @@ class Engine:
 
         Args:
             uri (str): The URI string to parse.
+            pool (PoolConfig, optional): Enables connection pooling.
+            tls (bool): Use TLS for the connection.
+            certificate_verification (bool, optional): Verify the engine certificate.
+            certificate_path (str, optional): Pin the certificate in this file.
+            certificate_fingerprint (str, optional): Pin this SHA-256 fingerprint.
 
         Returns:
             Engine: An instance of Engine with the parsed parameters.
@@ -82,7 +158,11 @@ class Engine:
             username=parsed.username,
             password=parsed.password,
             store=store,
-            pool=pool
+            pool=pool,
+            tls=tls,
+            certificate_verification=certificate_verification,
+            certificate_path=certificate_path,
+            certificate_fingerprint=certificate_fingerprint,
         )
 
     async def _execute_query_with_credentials(self, command: List[Any]) -> Any:
@@ -99,17 +179,14 @@ class Engine:
             "raw": command,
             "credentials": [self.username, self.password]
         })
-        return await send_data(self.host, self.port, query, tls=self.tls, pool_config=self.pool)
+        return await send_data(self.host, self.port, query, tls=self.tls_options, pool_config=self.pool)
 
     async def create_store(self) -> Any:
         """
         Creates a new data store on the server.
 
-        Args:
-            persistent (bool): Flag indicating if the store should be persistent.
-
         Returns:
-            bool
+            Any: The server response.
         """
         return await self._execute_query_with_credentials([
             'create-store', "store", self.store
@@ -119,11 +196,8 @@ class Engine:
         """
         Removes an existing data store from the server.
 
-        Args:
-            persistent (bool): Flag indicating if the removal should be persistent.
-
         Returns:
-            bool
+            Any: The server response.
         """
         return await self._execute_query_with_credentials([
             'remove-store', "store", self.store
@@ -311,7 +385,13 @@ class Engine:
         store: Union[str, None] = None,
         keyspace: Union[str, None] = None,
     ) -> Any:
-        """Return actual global and per-keyspace semantic configuration."""
+        """Return actual global and per-keyspace semantic configuration.
+
+        The response data includes ``reloading`` while retained indexes reopen
+        after global semantic search is enabled. Retry semantic searches or
+        vector uploads until it is false. ``indexing`` reports live and
+        backfill queue depths.
+        """
         if keyspace and not store:
             raise ValueError("A store is required when keyspace is specified")
         command = ["get-semantic-status"]
@@ -455,9 +535,10 @@ class Engine:
     async def enable_wait_for_index(self) -> Any:
         """
         Enable the DB-wide "wait for index" default: writes block until their
-        secondary indexes are updated before returning, so a write is
-        immediately visible to index-backed reads (e.g. lookup_*_where) at the
-        cost of higher write latency.
+        secondary indexes and already-submitted semantic live work are updated
+        before returning, so a write is immediately visible to index-backed
+        reads (including keyword and hybrid search) at the cost of higher write
+        latency.
 
         Requires superowner credentials.
 

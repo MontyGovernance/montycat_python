@@ -195,6 +195,50 @@ class UtilityTests(unittest.TestCase):
                 ],
             )
 
+    def test_bulk_update_extracts_schema_without_mutating_timestamp_map(self):
+        class Query:
+            username = password = keyspace = store = ""
+            persistent = distributed = False
+
+        value = {
+            "schema": "Event",
+            "name": "release",
+            "timestamps": {"modifiedon": "2026-09-15 20:57:52"},
+        }
+        query = orjson.loads(
+            convert_to_binary_query(
+                Query,
+                command="update_bulk",
+                bulk_keys_values={7: value},
+            )
+        )
+
+        self.assertEqual(query["schema"], "Event")
+        self.assertEqual(
+            orjson.loads(query["bulk_keys_values"]["7"]),
+            {
+                "name": "release",
+                "timestamps": {"modifiedon": "2026-09-15 20:57:52"},
+            },
+        )
+        self.assertEqual(value["schema"], "Event")
+        self.assertIn("timestamps", value)
+
+    def test_bulk_update_rejects_mixed_schemas(self):
+        class Query:
+            username = password = keyspace = store = ""
+            persistent = distributed = False
+
+        with self.assertRaisesRegex(ValueError, "only one schema"):
+            convert_to_binary_query(
+                Query,
+                command="update_bulk",
+                bulk_keys_values={
+                    "1": {"schema": "First", "value": 1},
+                    "2": {"schema": "Second", "value": 2},
+                },
+            )
+
 
 class SemanticValidationTests(unittest.IsolatedAsyncioTestCase):
     async def test_rejects_missing_or_invalid_semantic_vectors_before_networking(self):

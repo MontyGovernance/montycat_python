@@ -1,24 +1,28 @@
 import orjson, asyncio
 from typing import Union
 import asyncio
-import ssl
 
 from .pool import PoolConfig, get_pool
-
-def _ssl_context(tls: bool):
-    if not tls:
-        return None
-    context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
-    context.check_hostname = False
-    context.verify_mode = ssl.CERT_NONE
-    return context
+from .tls import TlsOptions
 
 
-async def _connect(host: str, port: int, tls: bool):
-    return await asyncio.wait_for(
-        asyncio.open_connection(host, port, ssl=_ssl_context(tls)),
+async def _connect(host: str, port: int, options: TlsOptions):
+    reader, writer = await asyncio.wait_for(
+        asyncio.open_connection(host, port, ssl=options.ssl_context()),
         timeout=10.0,
     )
+
+    # Pinning is settled here rather than during the handshake, because the
+    # comparison is against a certificate this client was handed out of band
+    # rather than against a chain. A connection that fails the check is closed
+    # before a single request byte reaches it.
+    try:
+        options.verify_peer(writer.get_extra_info("ssl_object"))
+    except Exception:
+        await _close(writer)
+        raise
+
+    return reader, writer
 
 
 async def _close(writer):
@@ -46,7 +50,7 @@ async def send_data(
     query: bytes,
     callback=None,
     stop_event: Union[asyncio.Event, None] = None,
-    tls=False,
+    tls: Union[bool, TlsOptions] = False,
     pool_config: Union[PoolConfig, None] = None,
 ):
     """
@@ -59,7 +63,10 @@ async def send_data(
         callback: Supplying one makes this a subscription. Subscription mode is
             never inferred from the payload.
         stop_event (asyncio.Event, optional): Terminates a subscription.
-        tls (bool): Use TLS for the connection.
+        tls (bool | TlsOptions): Use TLS for the connection. A bool means
+            encryption without certificate verification, which is what this
+            argument has always meant. Pass a :class:`~montycat.core.tls.TlsOptions`
+            to verify the engine's certificate as well.
         pool_config (PoolConfig, optional): Enables connection pooling for the
             request/response path. None (the default) connects per request.
 
@@ -74,18 +81,20 @@ async def send_data(
     # from the payload. Searching the request for b"subscribe" misread any
     # record whose value merely contained that word, routing it into the
     # streaming branch, which never returns.
+    options: TlsOptions = TlsOptions.coerce(tls)
+
     if callback is not None:
-        return await _subscription(host, port, query, callback, stop_event, tls)
-    return await _request(host, port, query, tls, pool_config)
+        return await _subscription(host, port, query, callback, stop_event, options)
+    return await _request(host, port, query, options, pool_config)
 
 
-async def _subscription(host, port, query, callback, stop_event, tls):
+async def _subscription(host, port, query, callback, stop_event, options):
     """Streaming path. Never pooled (contract §5)."""
     writer = None
     read = None
     stop_waiter = None
     try:
-        reader, writer = await _connect(host, port, tls)
+        reader, writer = await _connect(host, port, options)
 
         writer.write(query + b"\n")
         await writer.drain()
@@ -154,9 +163,9 @@ async def _subscription(host, port, query, callback, stop_event, tls):
         await _close(writer)
 
 
-async def _request(host, port, query, tls, pool_config):
+async def _request(host, port, query, options, pool_config):
     """Request/response path — the only one that may use a pool."""
-    pool = get_pool(host, port, tls, pool_config)
+    pool = get_pool(host, port, options.pool_key(), pool_config)
 
     if pool is not None:
         leased = await pool.checkout()
@@ -182,7 +191,7 @@ async def _request(host, port, query, tls, pool_config):
 
     writer = None
     try:
-        reader, writer = await _connect(host, port, tls)
+        reader, writer = await _connect(host, port, options)
         response = await _exchange(reader, writer, query)
     except asyncio.CancelledError:
         await _close(writer)

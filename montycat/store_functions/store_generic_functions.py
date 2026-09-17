@@ -2,6 +2,7 @@ from ..core.tools import Timestamp, Pointer, Limit
 import orjson
 import xxhash
 from typing import Type, Dict, List, Union, Any
+from copy import deepcopy
 
 def convert_custom_key(key: Union[int, str]) -> int:
     """
@@ -179,10 +180,22 @@ def convert_to_binary_query(
         ]
 
     if bulk_keys_values:
-        bulk_keys_values = {
-            k: modify_pointers(v)
-            for k, v in bulk_keys_values.items()
-        }
+        update_schemas = []
+        normalized_bulk_keys_values = {}
+        for key, item in bulk_keys_values.items():
+            item_copy = deepcopy(item)
+            update_schemas.append(item_copy.pop('schema', None))
+            normalized_bulk_keys_values[str(key)] = modify_pointers(item_copy)
+
+        unique_update_schemas = set(update_schemas)
+        if len(unique_update_schemas) > 1:
+            raise ValueError("Bulk values should fit only one schema")
+        if update_schemas and update_schemas[0] is not None:
+            if schema is not None and schema != update_schemas[0]:
+                raise ValueError("Bulk values should fit only one schema")
+            schema = update_schemas[0]
+
+        bulk_keys_values = normalized_bulk_keys_values
 
     if bulk_keys:
         bulk_keys = [str(k) for k in bulk_keys]
