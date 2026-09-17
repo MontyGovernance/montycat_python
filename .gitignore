@@ -7,4 +7,10 @@ build
 test.py
 **.pyc
 CONNECTION_POOLING_PLAN.md
+# Application fixtures may contain local/private data. These TLS files are
+# intentionally public test material and must be present in clean CI clones.
 fixtures
+!tests/fixtures/
+!tests/fixtures/cert.pem
+!tests/fixtures/key.pem
+!tests/fixtures/other_cert.pem
