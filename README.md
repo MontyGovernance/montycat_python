@@ -1,6 +1,6 @@
 # 🐍 Montycat for Python — The AI-Native NoSQL Database with Semantic Search for RAG & Agents
 
-### Abolish the two-database stack.
+### Abolish the two-database stack. 
 
 The official async Python client for [Montycat](https://montygovernance.com) — a self-hosted **NoSQL + vector database** with AI **semantic search** forged into the core, built for **RAG and AI-agent memory**. One Rust engine, not a sprawl of services. **Your hardware. Your data. Your meaning.**
 
