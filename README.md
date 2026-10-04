@@ -119,8 +119,12 @@ class ProductionSchema(Schema):
 
 async def main():
     # create store and keyspaces using runtime migration
-    await Sales.create_keyspace()
+    await Sales.create_keyspace(cache=128, compression=True)
     await Production.create_keyspace()
+
+    # Compression is fixed at persistent-keyspace creation. Cache capacity is
+    # in MB and can be changed later without resubmitting compression.
+    await Sales.update_cache(cache=256)
 
     await Sales.enforce_schema(SalesSchema)
     await Production.enforce_schema(ProductionSchema)

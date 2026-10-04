@@ -165,26 +165,46 @@ class persistent_kv:
         return await cls._run_query(query)
 
     @classmethod
-    async def update_cache_and_compression(cls, cache: Union[int, None] = None, compression: bool = False):
+    async def update_cache_and_compression(cls, cache: Union[int, None] = None, compression: Union[bool, None] = None):
         """
-        Updates the cache size and compression settings for the current store.
+        Updates the cache size while asserting the keyspace's immutable compression setting.
+
+        Prefer ``update_cache``. Compression is fixed when the keyspace is created;
+        the server rejects a value that differs from the existing setting.
 
         Args:
             cache: Optional cache size in bytes. If None, no cache is used.
-            compression: Whether to enable compression. Default is False.
+            compression: Existing compression setting to assert. Omit it for a
+                         cache-only update.
 
         Returns:
             bool
         """
-        query = orjson.dumps({
-            "raw": [
+        raw = [
                 'update-cache-compression',
                 "store", cls.store,
                 "keyspace", cls.keyspace,
                 "cache", str(cache) if cache else "0",
-                "compression", "y" if compression else "n"
-            ],
+            ]
+        if compression is not None:
+            raw.extend(["compression", "y" if compression else "n"])
+        query = orjson.dumps({
+            "raw": raw,
             "credentials": [cls.username, cls.password]
         })
 
+        return await cls._run_query(query)
+
+    @classmethod
+    async def update_cache(cls, cache: Union[int, None] = None):
+        """Updates cache capacity without resubmitting the immutable compression setting."""
+        query = orjson.dumps({
+            "raw": [
+                "update-cache-compression",
+                "store", cls.store,
+                "keyspace", cls.keyspace,
+                "cache", str(cache) if cache else "0",
+            ],
+            "credentials": [cls.username, cls.password]
+        })
         return await cls._run_query(query)
