@@ -5,6 +5,15 @@ All notable changes to the Montycat Python client are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.7] - 2026-11-01
+
+### Added
+
+- Add optional `cpu_arena` to `Engine.enable_semantic_search()` for a
+  persisted, DB-wide CPU embedding allocator setting. The default remains
+  unchanged; `False` can reduce idle memory at an inference throughput cost.
+  Requires Montycat Semantic server 1.3.9 or newer.
+
 ## [1.2.6] - 2026-10-04
 
 ### Added

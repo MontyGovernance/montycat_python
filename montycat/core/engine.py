@@ -299,7 +299,7 @@ class Engine:
         """
         return await self._execute_query_with_credentials(['list-owners'])
 
-    async def enable_semantic_search(self, model: Optional[SemanticModel] = None, field: Union[str, None] = None, store: Union[str, None] = None, keyspace: Union[str, None] = None) -> Any:
+    async def enable_semantic_search(self, model: Optional[SemanticModel] = None, field: Union[str, None] = None, store: Union[str, None] = None, keyspace: Union[str, None] = None, cpu_arena: Optional[bool] = None) -> Any:
         """
         Enable semantic (vector similarity) search.
 
@@ -328,6 +328,11 @@ class Engine:
 
         An already-enrolled keyspace is not modified. Use
         ``reembed_semantic_search`` to change its model or field.
+
+        ``cpu_arena`` is an optional DB-wide, persisted allocator override.
+        True preserves buffer reuse for speed; False reduces idle memory at
+        potentially lower throughput. It affects indexing and query sessions,
+        without re-embedding stored vectors. Requires no store/keyspace scope.
         """
         if keyspace and not store:
             raise ValueError("A store is required when keyspace is specified")
@@ -340,6 +345,12 @@ class Engine:
             command.extend(["store", store])
         if keyspace:
             command.extend(["keyspace", keyspace])
+        if cpu_arena is not None:
+            if not isinstance(cpu_arena, bool):
+                raise TypeError("cpu_arena must be a bool")
+            if store or keyspace:
+                raise ValueError("cpu_arena is a DB-wide setting; omit store and keyspace")
+            command.extend(["cpu-arena", str(cpu_arena).lower()])
 
         return await self._execute_query_with_credentials(command)
 
