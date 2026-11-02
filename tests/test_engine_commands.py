@@ -100,6 +100,15 @@ class EngineCommandTests(unittest.IsolatedAsyncioTestCase):
             await self.engine.grant_to("alice", "admin")
 
     async def test_semantic_commands_and_scope_validation(self):
+        for value in [True, False]:
+            await self.assert_command(
+                self.engine.enable_semantic_search(cpu_arena=value),
+                ["enable-semantic-search", "cpu-arena", str(value).lower()],
+            )
+        with self.assertRaisesRegex(ValueError, "DB-wide"):
+            await self.engine.enable_semantic_search(store="catalog", cpu_arena=False)
+        with self.assertRaises(TypeError):
+            await self.engine.enable_semantic_search(cpu_arena="false")
         await self.assert_command(
             self.engine.enable_semantic_search(
                 SemanticModel.BGE_SMALL,
